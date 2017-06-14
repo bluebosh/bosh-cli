@@ -163,6 +163,20 @@ func (d *diskDeployer) migrateDisk(
 		return newDisk, err
 	}
 
+	stageName = fmt.Sprint("Listing disks")
+	err = stage.Perform(stageName, func() error {
+		disks, err := vm.Disks()
+		for _, disk := range disks {
+			if disk.CID() != newDisk.CID() {
+				return bosherr.Errorf("Unexpected disk attached: %s", disk.CID())
+			}
+		}
+		return err
+	})
+	if err != nil {
+		return newDisk, err
+	}
+
 	stageName = fmt.Sprintf("Deleting disk '%s'", originalDisk.CID())
 	err = stage.Perform(stageName, func() error {
 		return originalDisk.Delete()
