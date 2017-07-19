@@ -107,7 +107,8 @@ var _ = Describe("bosh", func() {
 		}
 
 		buffer := prepareDeploymentManifest(context, sourceManifestPath)
-		testEnv.WriteContent("test-manifest.yml", buffer)
+		err := testEnv.WriteContent("test-manifest.yml", buffer)
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	var updateCompiledReleaseDeploymentManifest = func(sourceManifestPath string) {
@@ -116,7 +117,8 @@ var _ = Describe("bosh", func() {
 		}
 
 		buffer := prepareDeploymentManifest(context, sourceManifestPath)
-		testEnv.WriteContent("test-compiled-manifest.yml", buffer)
+		err := testEnv.WriteContent("test-compiled-manifest.yml", buffer)
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	var updateCompiledReleaseDeploymentManifestWithCACerts = func(sourceManifestPath string, caCert string) {
@@ -138,7 +140,8 @@ var _ = Describe("bosh", func() {
 		}
 
 		buffer := prepareDeploymentManifest(context, sourceManifestPath)
-		testEnv.WriteContent("test-compiled-manifest.yml", buffer)
+		err = testEnv.WriteContent("test-compiled-manifest.yml", buffer)
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	var deploy = func(manifestFile string) string {
@@ -173,7 +176,9 @@ var _ = Describe("bosh", func() {
 		stdout := &bytes.Buffer{}
 		multiWriter := io.MultiWriter(stdout, GinkgoWriter)
 
-		_, _, exitCode, err := sshCmdRunner.RunStreamingCommand(multiWriter, cmdEnv, testEnv.Path("bosh"), "delete-env", "--tty", testEnv.Path("test-manifest.yml"))
+		_, _, exitCode, err := sshCmdRunner.RunStreamingCommand(multiWriter, cmdEnv, testEnv.Path("bosh"),
+			"delete-env", "--tty", testEnv.Path("test-manifest.yml"))
+
 		Expect(err).ToNot(HaveOccurred())
 		Expect(exitCode).To(Equal(0))
 
@@ -233,20 +238,12 @@ var _ = Describe("bosh", func() {
 		err = config.Validate()
 		Expect(err).NotTo(HaveOccurred())
 
-		testEnv = NewRemoteTestEnvironment(
-			config.VMUsername,
-			config.VMIP,
-			config.VMPort,
-			config.PrivateKeyPath,
+		testEnv = NewTestEnvironment(
 			fileSystem,
 			logger,
 		)
 
-		sshCmdRunner = NewSSHCmdRunner(
-			config.VMUsername,
-			config.VMIP,
-			config.VMPort,
-			config.PrivateKeyPath,
+		sshCmdRunner = NewCmdRunner(
 			logger,
 		)
 
@@ -271,10 +268,6 @@ var _ = Describe("bosh", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		instanceSSH = NewInstanceSSH(
-			config.VMUsername,
-			config.VMIP,
-			config.VMPort,
-			config.PrivateKeyPath,
 			instanceUsername,
 			instanceIP,
 			instancePassword,
