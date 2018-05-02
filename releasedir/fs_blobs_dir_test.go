@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	fakecrypto "github.com/cloudfoundry/bosh-cli/crypto/fakes"
-	fakeblob "github.com/cloudfoundry/bosh-utils/blobstore/fakes"
 	boshcrypto "github.com/cloudfoundry/bosh-utils/crypto"
 	fakelogger "github.com/cloudfoundry/bosh-utils/logger/loggerfakes"
 	fakesys "github.com/cloudfoundry/bosh-utils/system/fakes"
@@ -17,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"fmt"
+
 	. "github.com/cloudfoundry/bosh-cli/releasedir"
 	fakereldir "github.com/cloudfoundry/bosh-cli/releasedir/releasedirfakes"
 )
@@ -25,7 +25,7 @@ var _ = Describe("FSBlobsDir", func() {
 	var (
 		fs               *fakesys.FakeFileSystem
 		reporter         *fakereldir.FakeBlobsDirReporter
-		blobstore        *fakeblob.FakeDigestBlobstore
+		blobstore        *fakereldir.FakeDigestBlobstore
 		digestCalculator *fakecrypto.FakeDigestCalculator
 		blobsDir         FSBlobsDir
 		logger           *fakelogger.FakeLogger
@@ -34,7 +34,7 @@ var _ = Describe("FSBlobsDir", func() {
 	BeforeEach(func() {
 		fs = fakesys.NewFakeFileSystem()
 		reporter = &fakereldir.FakeBlobsDirReporter{}
-		blobstore = &fakeblob.FakeDigestBlobstore{}
+		blobstore = &fakereldir.FakeDigestBlobstore{}
 		digestCalculator = fakecrypto.NewFakeDigestCalculator()
 		logger = &fakelogger.FakeLogger{}
 		blobsDir = NewFSBlobsDir(filepath.Join("/", "dir"), reporter, blobstore, digestCalculator, fs, logger)
@@ -221,7 +221,7 @@ already-downloaded.tgz:
 			It("reports error", func() {
 				blobstore.GetReturns("", errors.New("fake-err"))
 
-				err := act(1)
+				err := act(2)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Getting blob 'blob1' for path '" + filepath.Join("dir", "file-in-directory.tgz") + "': fake-err"))
 
@@ -231,13 +231,17 @@ already-downloaded.tgz:
 
 			Context("when more than one blob fails to download", func() {
 				It("reports error", func() {
-					times := 0
-					blobstore.GetStub = func(blobID string, digest boshcrypto.Digest) (string, error) {
-						defer func() { times += 1 }()
-						return []string{filepath.Join("/", "blob1-tmp"), filepath.Join("/", "blob2-tmp")}[times], []error{errors.New("fake-err1"), errors.New("fake-err2")}[times]
+					blobstore.GetStub = func(blobID string, _ boshcrypto.Digest) (fileName string, err error) {
+						switch blobID {
+						case "blob1":
+							return filepath.Join("/", "blob1-tmp"), errors.New("fake-err1")
+						case "blob2":
+							return filepath.Join("/", "blob2-tmp"), errors.New("fake-err2")
+						}
+						return "", nil
 					}
 
-					err := act(1)
+					err := act(2)
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("Getting blob 'blob1' for path '" + filepath.Join("dir", "file-in-directory.tgz") + "': fake-err1"))
 					Expect(err.Error()).To(ContainSubstring("Getting blob 'blob2' for path 'file-in-root.tgz': fake-err2"))
@@ -265,12 +269,14 @@ already-downloaded.tgz:
 
 			Context("without placing any local blobs", func() {
 				It("returns error", func() {
-					times := 0
-					blobstore.GetStub = func(blobID string, digest boshcrypto.Digest) (string, error) {
-						defer func() { times += 1 }()
-						path := []string{filepath.Join("/", "blob1-tmp"), filepath.Join("/", "blob2-tmp")}[times]
-						err := []error{nil, errors.New("fake-err")}[times]
-						return path, err
+					blobstore.GetStub = func(blobID string, _ boshcrypto.Digest) (fileName string, err error) {
+						switch blobID {
+						case "blob1":
+							return filepath.Join("/", "blob1-tmp"), nil
+						case "blob2":
+							return filepath.Join("/", "blob2-tmp"), errors.New("fake-err")
+						}
+						return "", nil
 					}
 
 					err := act(1)
@@ -414,6 +420,64 @@ bad-sha-blob.tgz:
 				}
 				err := act(1)
 				Expect(err).To(MatchError("Syncing blobs: Removing unknown blob: failed to remove " + filepath.Join("/", "dir", "blobs", "extra-blob.tgz")))
+			})
+		})
+
+		Context("when a symlink exists", func() {
+			It("returns an error", func() {
+				missingFilePath := filepath.Join("/", "dir", ".blobs", "does-not-exist")
+				symlink := filepath.Join("/", "dir", "blobs", "fake-symlink")
+
+				fs.Symlink(missingFilePath, symlink)
+
+				fs.SetGlob(filepath.Join("/", "dir", "blobs", "**", "*"), []string{symlink})
+
+				fs.RegisterOpenFile(symlink, &fakesys.FakeFile{
+					Stats: &fakesys.FakeFileStats{
+						FileType:      fakesys.FakeFileTypeFile,
+						FileMode:      os.FileMode(os.ModeSymlink),
+						SymlinkTarget: missingFilePath,
+					},
+				})
+
+				err := act(1)
+				Expect(err).To(MatchError("Bailing because symlinks found in blobs directory. If switching from CLI v1, please use the `reset-release` command."))
+			})
+		})
+
+		Context("when getting the symlink description errors", func() {
+			It("passes the error along", func() {
+				existingFilePath := filepath.Join("/", "dir", "blobs", "does-exist")
+				symlink := filepath.Join("/", "dir", "blobs", "fake-symlink")
+
+				fs.Symlink(existingFilePath, symlink)
+
+				fs.SetGlob(filepath.Join("/", "dir", "blobs", "**", "*"), []string{symlink})
+
+				fs.RegisterOpenFile(symlink, &fakesys.FakeFile{
+					StatErr: errors.New("fake-err"),
+				})
+
+				err := act(1)
+				Expect(err).To(MatchError("Syncing blobs: fake-err"))
+			})
+		})
+
+		Context("when no symlink exists", func() {
+			It("succeeds", func() {
+				existingFilePath := filepath.Join("/", "dir", "blobs", "does-exist")
+
+				fs.SetGlob(filepath.Join("/", "dir", "blobs", "**", "*"), []string{existingFilePath})
+
+				fs.RegisterOpenFile(existingFilePath, &fakesys.FakeFile{
+					Stats: &fakesys.FakeFileStats{
+						FileType: fakesys.FakeFileTypeFile,
+						FileMode: os.FileMode(os.ModeDir),
+					},
+				})
+
+				err := act(1)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

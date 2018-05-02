@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/cloudfoundry/bosh-cli/cmd"
+
 	fakecmd "github.com/cloudfoundry/bosh-cli/cmd/cmdfakes"
 	boshdir "github.com/cloudfoundry/bosh-cli/director"
 	fakedir "github.com/cloudfoundry/bosh-cli/director/directorfakes"
@@ -39,6 +40,11 @@ var _ = Describe("RunErrandCmd", func() {
 				Args:        RunErrandArgs{Name: "errand-name"},
 				KeepAlive:   true,
 				WhenChanged: true,
+				InstanceGroupOrInstanceSlugFlags: InstanceGroupOrInstanceSlugFlags{
+					Slugs: []boshdir.InstanceGroupOrInstanceSlug{
+						boshdir.NewInstanceGroupOrInstanceSlug("group2", "uuid"),
+					},
+				},
 			}
 		})
 
@@ -105,9 +111,11 @@ var _ = Describe("RunErrandCmd", func() {
 
 				It("runs errand and outputs both stdout and stderr", func() {
 					result := []boshdir.ErrandResult{{
-						ExitCode: 0,
-						Stdout:   "stdout-content",
-						Stderr:   "",
+						InstanceGroup: "group1",
+						InstanceID:    "uuid-1",
+						ExitCode:      0,
+						Stdout:        "stdout-content",
+						Stderr:        "",
 					}, {
 						ExitCode: 129,
 						Stdout:   "",
@@ -125,6 +133,7 @@ var _ = Describe("RunErrandCmd", func() {
 							Content: "errand(s)",
 
 							Header: []boshtbl.Header{
+								boshtbl.NewHeader("Instance"),
 								boshtbl.NewHeader("Exit Code"),
 								boshtbl.NewHeader("Stdout"),
 								boshtbl.NewHeader("Stderr"),
@@ -136,10 +145,12 @@ var _ = Describe("RunErrandCmd", func() {
 
 							Rows: [][]boshtbl.Value{
 								{
+									boshtbl.NewValueString("group1/uuid-1"),
 									boshtbl.NewValueInt(0),
 									boshtbl.NewValueString("stdout-content"),
 									boshtbl.NewValueString(""),
 								}, {
+									boshtbl.NewValueString(""),
 									boshtbl.NewValueInt(129),
 									boshtbl.NewValueString(""),
 									boshtbl.NewValueString("stderr-content"),
@@ -158,16 +169,18 @@ var _ = Describe("RunErrandCmd", func() {
 
 			It("runs errand with given name", func() {
 				deployment.RunErrandReturns([]boshdir.ErrandResult{{ExitCode: 0}}, nil)
-
 				err := act()
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(deployment.RunErrandCallCount()).To(Equal(1))
 
-				name, keepAlive, whenChanged := deployment.RunErrandArgsForCall(0)
+				name, keepAlive, whenChanged, slugs := deployment.RunErrandArgsForCall(0)
 				Expect(name).To(Equal("errand-name"))
 				Expect(keepAlive).To(BeTrue())
 				Expect(whenChanged).To(BeTrue())
+				Expect(slugs).To(HaveLen(1))
+				Expect(slugs[0].Name()).To(Equal("group2"))
+				Expect(slugs[0].IndexOrID()).To(Equal("uuid"))
 			})
 
 			It("downloads logs if requested", func() {
@@ -230,6 +243,7 @@ var _ = Describe("RunErrandCmd", func() {
 						Content: "errand(s)",
 
 						Header: []boshtbl.Header{
+							boshtbl.NewHeader("Instance"),
 							boshtbl.NewHeader("Exit Code"),
 							boshtbl.NewHeader("Stdout"),
 							boshtbl.NewHeader("Stderr"),
@@ -241,6 +255,7 @@ var _ = Describe("RunErrandCmd", func() {
 
 						Rows: [][]boshtbl.Value{
 							{
+								boshtbl.NewValueString(""),
 								boshtbl.NewValueInt(1),
 								boshtbl.NewValueString(""),
 								boshtbl.NewValueString(""),

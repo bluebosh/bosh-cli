@@ -62,6 +62,13 @@ var _ = Describe("SCPArgs", func() {
 			Expect(scpArgs.ForHost(host)).To(Equal([]string{"user@127.0.0.1:arg1", "user@127.0.0.1:arg2"}))
 		})
 
+		It("wraps host info in brackets for IPv6 addresses", func() {
+			host.Host = "::1"
+
+			scpArgs := NewSCPArgs([]string{"host:arg1"}, false)
+			Expect(scpArgs.ForHost(host)).To(Equal([]string{"user@[::1]:arg1"}))
+		})
+
 		It("replaces named host keeping remaining colons", func() {
 			scpArgs := NewSCPArgs([]string{"host:some:file"}, false)
 			Expect(scpArgs.ForHost(host)).To(Equal([]string{"user@127.0.0.1:some:file"}))
@@ -76,6 +83,20 @@ var _ = Describe("SCPArgs", func() {
 			scpArgs := NewSCPArgs([]string{"host:some:file-((instance_id))", "host:file-((instance_id))", "file-((instance_id))"}, false)
 			Expect(scpArgs.ForHost(host)).To(Equal([]string{
 				"user@127.0.0.1:some:file-id", "user@127.0.0.1:file-id", "file-id"}))
+		})
+
+		It("ignores Windows-style drive references", func() {
+			scpArgs := NewSCPArgs([]string{"host:C:\\file", "C:\\localfile"}, false)
+			Expect(scpArgs.ForHost(host)).To(Equal([]string{
+				"user@127.0.0.1:C:\\file", "C:\\localfile",
+			}))
+		})
+
+		It("ignores lowercase Windows-style drive references", func() {
+			scpArgs := NewSCPArgs([]string{"host:c:\\file", "c:\\localfile"}, false)
+			Expect(scpArgs.ForHost(host)).To(Equal([]string{
+				"user@127.0.0.1:c:\\file", "c:\\localfile",
+			}))
 		})
 
 		It("returns empty when it's empty", func() {

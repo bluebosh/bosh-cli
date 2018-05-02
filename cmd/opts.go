@@ -17,7 +17,8 @@ type BoshOpts struct {
 
 	EnvironmentOpt string    `long:"environment" short:"e" description:"Director environment name or URL" env:"BOSH_ENVIRONMENT"`
 	CACertOpt      CACertArg `long:"ca-cert"               description:"Director CA certificate path or value" env:"BOSH_CA_CERT"`
-	Sha2           bool      `long:"sha2"                  description:"Use SHA256 checksums"`
+	Sha2           bool      `long:"sha2"                  description:"Use SHA256 checksums" env:"BOSH_SHA2"`
+	Parallel       int       `long:"parallel" description:"The max number of parallel operations" default:"5"`
 
 	// Hidden
 	UsernameOpt string `long:"user" hidden:"true" env:"BOSH_USER"`
@@ -58,6 +59,13 @@ type BoshOpts struct {
 	// Misc
 	Locks   LocksOpts   `command:"locks"    description:"List current locks"`
 	CleanUp CleanUpOpts `command:"clean-up" description:"Clean up releases, stemcells, disks, etc."`
+
+	// Config
+	Config         ConfigOpts       `command:"config" alias:"c" description:"Show current config for either ID or both type and name"`
+	Configs        ConfigsOpts      `command:"configs" alias:"cs" description:"List configs"`
+	UpdateConfig   UpdateConfigOpts `command:"update-config" alias:"uc" description:"Update config"`
+	DeleteConfig   DeleteConfigOpts `command:"delete-config" alias:"dc" description:"Delete config"`
+	DiffConfigByID DiffConfigOpts   `command:"diff-config" description:"Diff two configs by ID"`
 
 	// Cloud config
 	CloudConfig       CloudConfigOpts       `command:"cloud-config"        alias:"cc"  description:"Show current cloud config"`
@@ -142,8 +150,10 @@ type BoshOpts struct {
 	GenerateJob     GenerateJobOpts     `command:"generate-job"                description:"Generate job"`
 	GeneratePackage GeneratePackageOpts `command:"generate-package"            description:"Generate package"`
 	CreateRelease   CreateReleaseOpts   `command:"create-release"   alias:"cr" description:"Create release"`
+	VendorPackage   VendorPackageOpts   `command:"vendor-package"              description:"Vendor package"`
 
 	// Hidden
+	Sha1ifyRelease  Sha1ifyReleaseOpts  `command:"sha1ify-release"  hidden:"true" description:"Convert release tarball to use SHA1"`
 	Sha2ifyRelease  Sha2ifyReleaseOpts  `command:"sha2ify-release"  hidden:"true" description:"Convert release tarball to use SHA256"`
 	FinalizeRelease FinalizeReleaseOpts `command:"finalize-release"               description:"Create final release from dev release tarball"`
 
@@ -167,6 +177,7 @@ type CreateEnvOpts struct {
 	VarFlags
 	OpsFlags
 	StatePath string `long:"state" value-name:"PATH" description:"State file path"`
+	Recreate  bool   `long:"recreate" description:"Recreate VM in deployment"`
 	cmd
 }
 
@@ -287,6 +298,63 @@ type InterpolateArgs struct {
 	Manifest FileBytesArg `positional-arg-name:"PATH" description:"Path to a template that will be interpolated"`
 }
 
+// Config
+type ConfigOpts struct {
+	Args ConfigArgs `positional-args:"true"`
+	Name string     `long:"name" description:"Config name"`
+	Type string     `long:"type" description:"Config type"`
+
+	cmd
+}
+
+type ConfigArgs struct {
+	ID string `positional-arg-name:"ID" description:"Config ID"`
+}
+
+type ConfigsOpts struct {
+	Name   string `long:"name" description:"Config name" optional:"true"`
+	Type   string `long:"type" description:"Config type" optional:"true"`
+	Recent int    `long:"recent" short:"r" description:"Number of configs to show" optional:"true" optional-value:"1" default:"1"`
+
+	cmd
+}
+
+type DiffConfigOpts struct {
+	Args DiffConfigArgs `positional-args:"true" required:"true"`
+
+	cmd
+}
+
+type DiffConfigArgs struct {
+	FromID string `positional-arg-name:"FROM" description:"ID of first config to compare"`
+	ToID   string `positional-arg-name:"TO" description:"ID of second config to compare"`
+}
+
+type UpdateConfigOpts struct {
+	Args UpdateConfigArgs `positional-args:"true" required:"true"`
+	Type string           `long:"type" required:"true" description:"Config type, e.g. 'cloud', 'runtime', or 'cpi'"`
+	Name string           `long:"name" required:"true" description:"Config name"`
+	VarFlags
+	OpsFlags
+	cmd
+}
+
+type UpdateConfigArgs struct {
+	Config FileBytesArg `positional-arg-name:"PATH" description:"Path to a YAML config file"`
+}
+
+type DeleteConfigOpts struct {
+	Args DeleteConfigArgs `positional-args:"true"`
+	Type string           `long:"type" description:"Config type, e.g. 'cloud', 'runtime', or 'cpi'"`
+	Name string           `long:"name" description:"Config name"`
+
+	cmd
+}
+
+type DeleteConfigArgs struct {
+	ID string `positional-arg-name:"ID" description:"Config ID"`
+}
+
 // Cloud config
 type CloudConfigOpts struct {
 	cmd
@@ -311,6 +379,9 @@ type UpdateCPIConfigOpts struct {
 	Args UpdateCPIConfigArgs `positional-args:"true" required:"true"`
 	VarFlags
 	OpsFlags
+
+	NoRedact bool `long:"no-redact" description:"Show non-redacted manifest diff"`
+
 	cmd
 }
 
@@ -329,7 +400,8 @@ type UpdateRuntimeConfigOpts struct {
 	VarFlags
 	OpsFlags
 
-	Name string `long:"name" description:"Runtime-Config name (default: '')" default:""`
+	NoRedact bool   `long:"no-redact" description:"Show non-redacted manifest diff"`
+	Name     string `long:"name" description:"Runtime-Config name (default: '')" default:""`
 
 	cmd
 }
@@ -444,6 +516,8 @@ type RepackStemcellOpts struct {
 	Args            RepackStemcellArgs `positional-args:"true" required:"true"`
 	Name            string             `long:"name" description:"Repacked stemcell name"`
 	CloudProperties string             `long:"cloud-properties" description:"Repacked stemcell cloud properties"`
+	EmptyImage      bool               `long:"empty-image" description:"Pack zero byte file instead of image"`
+	Format          []string           `long:"format" description:"Repacked stemcell formats. Can be used multiple times. Overrides existing formats."`
 	Version         string             `long:"version" description:"Repacked stemcell version"`
 
 	cmd
@@ -473,6 +547,8 @@ type UploadReleaseOpts struct {
 
 	SHA1 string `long:"sha1" description:"SHA1 of the remote release (is not used with local files)"`
 
+	Stemcell boshdir.OSVersionSlug `long:"stemcell" value-name:"OS/VERSION" description:"Stemcell that the release is compiled against (applies to remote releases)"`
+
 	Release boshrel.Release
 
 	cmd
@@ -499,6 +575,7 @@ type ExportReleaseOpts struct {
 
 	Directory DirOrCWDArg `long:"dir" description:"Destination directory" default:"."`
 
+	Jobs []string `long:"job" description:"Name of job to export"`
 	cmd
 }
 
@@ -521,8 +598,14 @@ type ErrandsOpts struct {
 	cmd
 }
 
+type InstanceGroupOrInstanceSlugFlags struct {
+	Slugs []boshdir.InstanceGroupOrInstanceSlug `long:"instance" value-name:"INSTANCE-GROUP[/INSTANCE-ID]" description:"Instance or group the errand should run on (must specify errand by release job name)"`
+}
+
 type RunErrandOpts struct {
 	Args RunErrandArgs `positional-args:"true" required:"true"`
+
+	InstanceGroupOrInstanceSlugFlags
 
 	KeepAlive   bool `long:"keep-alive" description:"Use existing VM to run an errand and keep it after completion"`
 	WhenChanged bool `long:"when-changed" description:"Run errand only if errand configuration has changed or if the previous run was unsuccessful"`
@@ -609,9 +692,10 @@ type InstancesOpts struct {
 }
 
 type VMsOpts struct {
-	DNS        bool `long:"dns"               description:"Show DNS A records"`
-	Vitals     bool `long:"vitals"            description:"Show vitals"`
-	Deployment string
+	DNS             bool `long:"dns"               description:"Show DNS A records"`
+	Vitals          bool `long:"vitals"            description:"Show vitals"`
+	CloudProperties bool `long:"cloud-properties"  description:"Show cloud properties"`
+	Deployment      string
 	cmd
 }
 
@@ -796,13 +880,32 @@ type GeneratePackageArgs struct {
 	Name string `positional-arg-name:"NAME"`
 }
 
-type Sha2ifyReleaseOpts struct {
-	Args Sha2ifyReleaseArgs `positional-args:"true"`
+type VendorPackageOpts struct {
+	Args VendorPackageArgs `positional-args:"true" required:"true"`
+
+	Directory DirOrCWDArg `long:"dir" description:"Release directory path if not current working directory" default:"."`
 
 	cmd
 }
 
-type Sha2ifyReleaseArgs struct {
+type VendorPackageArgs struct {
+	PackageName string      `positional-arg-name:"PACKAGE"`
+	URL         DirOrCWDArg `positional-arg-name:"SRC-DIR" default:"."`
+}
+
+type Sha1ifyReleaseOpts struct {
+	Args RedigestReleaseArgs `positional-args:"true"`
+
+	cmd
+}
+
+type Sha2ifyReleaseOpts struct {
+	Args RedigestReleaseArgs `positional-args:"true"`
+
+	cmd
+}
+
+type RedigestReleaseArgs struct {
 	Path        string  `positional-arg-name:"PATH"`
 	Destination FileArg `positional-arg-name:"DESTINATION"`
 }
@@ -876,8 +979,7 @@ type RemoveBlobArgs struct {
 }
 
 type SyncBlobsOpts struct {
-	Directory   DirOrCWDArg `long:"dir" description:"Release directory path if not current working directory" default:"."`
-	ParallelOpt int         `long:"parallel" description:"Sets the max number of parallel downloads" default:"5"`
+	Directory DirOrCWDArg `long:"dir" description:"Release directory path if not current working directory" default:"."`
 	cmd
 }
 

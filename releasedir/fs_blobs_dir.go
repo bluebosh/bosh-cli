@@ -1,6 +1,11 @@
 package releasedir
 
 import (
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+
 	boshblob "github.com/cloudfoundry/bosh-utils/blobstore"
 	boshcrypto "github.com/cloudfoundry/bosh-utils/crypto"
 	bosherr "github.com/cloudfoundry/bosh-utils/errors"
@@ -8,13 +13,11 @@ import (
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	boshsys "github.com/cloudfoundry/bosh-utils/system"
 	"gopkg.in/yaml.v2"
-	"io"
-	"os"
-	"path/filepath"
-	"sort"
 
 	"fmt"
+
 	bicrypto "github.com/cloudfoundry/bosh-cli/crypto"
+	"github.com/cloudfoundry/bosh-cli/work"
 )
 
 type FSBlobsDir struct {
@@ -112,41 +115,44 @@ func (d FSBlobsDir) Blobs() ([]Blob, error) {
 	return blobs, nil
 }
 
-func (d FSBlobsDir) SyncBlobs(numOfParallelWorkers int) error {
+func (d FSBlobsDir) SyncBlobs(parallel int) error {
+	pool := work.Pool{
+		Count: parallel,
+	}
+
 	blobs, err := d.Blobs()
 	if err != nil {
 		return err
+	}
+
+	symlinksFound, err := d.containsSymlinks()
+	if err != nil {
+		return bosherr.WrapErrorf(err, "Syncing blobs")
+	}
+
+	if symlinksFound {
+		return bosherr.Error("Bailing because symlinks found in blobs directory. If switching from CLI v1, please use the `reset-release` command.")
 	}
 
 	if err := d.removeUnknownBlobs(blobs); err != nil {
 		return bosherr.WrapErrorf(err, "Syncing blobs")
 	}
 
-	resultsCh := make(chan error, len(blobs))
-	defer close(resultsCh)
-
-	blobsCh := make(chan Blob, numOfParallelWorkers)
-	defer close(blobsCh)
-
-	for w := 0; w < numOfParallelWorkers; w++ {
-		go d.downloadBlobsWorker(blobsCh, resultsCh)
-	}
-
+	var tasks []func() error
 	for _, blob := range blobs {
-		blobsCh <- blob
+		blob := blob
+		tasks = append(tasks, func() error {
+			if len(blob.BlobstoreID) > 0 {
+				return d.downloadBlob(blob)
+			}
+
+			return nil
+		})
 	}
 
-	var errs []error
-
-	for i := 0; i < len(blobs); i++ {
-		err := <-resultsCh
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if errs != nil {
-		return bosherr.NewMultiError(errs...)
+	err = pool.ParallelDo(tasks...)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -185,18 +191,6 @@ func (d FSBlobsDir) removeUnknownBlobs(blobs []Blob) error {
 	}
 
 	return nil
-}
-
-func (d FSBlobsDir) downloadBlobsWorker(blobsCh chan Blob, resultsCh chan<- error) {
-	for blob := range blobsCh {
-		var err error
-
-		if len(blob.BlobstoreID) > 0 {
-			err = d.downloadBlob(blob)
-		}
-
-		resultsCh <- err
-	}
 }
 
 func (d FSBlobsDir) TrackBlob(path string, src io.ReadCloser) (Blob, error) {
@@ -243,6 +237,8 @@ func (d FSBlobsDir) TrackBlob(path string, src io.ReadCloser) (Blob, error) {
 	}
 
 	blobs[idx] = Blob{Path: path, Size: fileInfo.Size(), SHA1: sha1}
+
+	tempFile.Close()
 
 	err = d.moveBlobLocally(tempFile.Name(), filepath.Join(d.dirPath, path))
 	if err != nil {
@@ -298,6 +294,26 @@ func (d FSBlobsDir) UploadBlobs() error {
 	}
 
 	return nil
+}
+
+func (d FSBlobsDir) containsSymlinks() (bool, error) {
+	files, err := d.fs.RecursiveGlob(filepath.Join(d.dirPath, "**/*"))
+	if err != nil {
+		return false, nil
+	}
+
+	for _, file := range files {
+		fileInfo, err := d.fs.Lstat(file)
+		if err != nil {
+			return false, err
+		}
+
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (d FSBlobsDir) checkBlobExistence(dstPath string, digest boshcrypto.MultipleDigest) bool {

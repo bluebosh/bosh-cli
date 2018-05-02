@@ -142,8 +142,8 @@ func (c Cmd) Execute() (cmdErr error) {
 		relProv, relDirProv := c.releaseProviders()
 
 		releaseDirFactory := func(dir DirOrCWDArg) (boshrel.Reader, boshreldir.ReleaseDir) {
-			releaseReader := relDirProv.NewReleaseReader(dir.Path)
-			releaseDir := relDirProv.NewFSReleaseDir(dir.Path)
+			releaseReader := relDirProv.NewReleaseReader(dir.Path, c.BoshOpts.Parallel)
+			releaseDir := relDirProv.NewFSReleaseDir(dir.Path, c.BoshOpts.Parallel)
 			return releaseReader, releaseDir
 		}
 
@@ -154,7 +154,14 @@ func (c Cmd) Execute() (cmdErr error) {
 		}
 
 		cmd := NewUploadReleaseCmd(
-			releaseDirFactory, releaseWriter, c.director(), releaseArchiveFactory, deps.CmdRunner, deps.FS, deps.UI)
+			releaseDirFactory,
+			releaseWriter,
+			c.director(),
+			releaseArchiveFactory,
+			deps.CmdRunner,
+			deps.FS,
+			deps.UI,
+		)
 
 		return cmd.Run(*opts)
 
@@ -221,6 +228,21 @@ func (c Cmd) Execute() (cmdErr error) {
 	case *InterpolateOpts:
 		return NewInterpolateCmd(deps.UI).Run(*opts)
 
+	case *ConfigOpts:
+		return NewConfigCmd(deps.UI, c.director()).Run(*opts)
+
+	case *ConfigsOpts:
+		return NewConfigsCmd(deps.UI, c.director()).Run(*opts)
+
+	case *DiffConfigOpts:
+		return NewDiffConfigCmd(deps.UI, c.director()).Run(*opts)
+
+	case *UpdateConfigOpts:
+		return NewUpdateConfigCmd(deps.UI, c.director()).Run(*opts)
+
+	case *DeleteConfigOpts:
+		return NewDeleteConfigCmd(deps.UI, c.director()).Run(*opts)
+
 	case *CloudConfigOpts:
 		return NewCloudConfigCmd(deps.UI, c.director()).Run()
 
@@ -254,10 +276,10 @@ func (c Cmd) Execute() (cmdErr error) {
 		return NewInspectReleaseCmd(deps.UI, c.director()).Run(*opts)
 
 	case *VMsOpts:
-		return NewVMsCmd(deps.UI, c.director()).Run(*opts)
+		return NewVMsCmd(deps.UI, c.director(), c.BoshOpts.Parallel).Run(*opts)
 
 	case *InstancesOpts:
-		return NewInstancesCmd(deps.UI, c.director()).Run(*opts)
+		return NewInstancesCmd(deps.UI, c.director(), c.BoshOpts.Parallel).Run(*opts)
 
 	case *UpdateResurrectionOpts:
 		return NewUpdateResurrectionCmd(c.director()).Run(*opts)
@@ -327,28 +349,48 @@ func (c Cmd) Execute() (cmdErr error) {
 	case *GeneratePackageOpts:
 		return NewGeneratePackageCmd(c.releaseDir(opts.Directory)).Run(*opts)
 
+	case *VendorPackageOpts:
+		return NewVendorPackageCmd(c.releaseDir, deps.UI).Run(*opts)
+
 	case *FinalizeReleaseOpts:
 		_, relDirProv := c.releaseProviders()
-		releaseReader := relDirProv.NewReleaseReader(opts.Directory.Path)
-		releaseDir := relDirProv.NewFSReleaseDir(opts.Directory.Path)
+		releaseReader := relDirProv.NewReleaseReader(opts.Directory.Path, c.BoshOpts.Parallel)
+		releaseDir := relDirProv.NewFSReleaseDir(opts.Directory.Path, c.BoshOpts.Parallel)
 		return NewFinalizeReleaseCmd(releaseReader, releaseDir, deps.UI).Run(*opts)
 
 	case *CreateReleaseOpts:
 		relProv, relDirProv := c.releaseProviders()
 
 		releaseDirFactory := func(dir DirOrCWDArg) (boshrel.Reader, boshreldir.ReleaseDir) {
-			releaseReader := relDirProv.NewReleaseReader(dir.Path)
-			releaseDir := relDirProv.NewFSReleaseDir(dir.Path)
+			releaseReader := relDirProv.NewReleaseReader(dir.Path, c.BoshOpts.Parallel)
+			releaseDir := relDirProv.NewFSReleaseDir(dir.Path, c.BoshOpts.Parallel)
 			return releaseReader, releaseDir
 		}
 
-		_, err := NewCreateReleaseCmd(releaseDirFactory, relProv.NewArchiveWriter(), c.deps.FS, c.deps.UI).Run(*opts)
+		_, err := NewCreateReleaseCmd(
+			releaseDirFactory,
+			relProv.NewArchiveWriter(),
+			c.deps.FS,
+			c.deps.UI,
+		).Run(*opts)
 		return err
+
+	case *Sha1ifyReleaseOpts:
+		relProv, _ := c.releaseProviders()
+
+		return NewRedigestReleaseCmd(
+			relProv.NewArchiveReader(),
+			relProv.NewArchiveWriter(),
+			crypto.NewDigestCalculator(c.deps.FS, []boshcrypto.Algorithm{boshcrypto.DigestAlgorithmSHA1}),
+			boshfu.NewFileMover(c.deps.FS),
+			c.deps.FS,
+			c.deps.UI,
+		).Run(opts.Args)
 
 	case *Sha2ifyReleaseOpts:
 		relProv, _ := c.releaseProviders()
 
-		return NewSha2ifyReleaseCmd(
+		return NewRedigestReleaseCmd(
 			relProv.NewArchiveReader(),
 			relProv.NewArchiveWriter(),
 			crypto.NewDigestCalculator(c.deps.FS, []boshcrypto.Algorithm{boshcrypto.DigestAlgorithmSHA256}),
@@ -370,10 +412,10 @@ func (c Cmd) Execute() (cmdErr error) {
 		return NewUploadBlobsCmd(c.blobsDir(opts.Directory)).Run()
 
 	case *SyncBlobsOpts:
-		return NewSyncBlobsCmd(c.blobsDir(opts.Directory), opts.ParallelOpt).Run()
+		return NewSyncBlobsCmd(c.blobsDir(opts.Directory), c.BoshOpts.Parallel).Run()
 
 	case *MessageOpts:
-		deps.UI.PrintBlock(opts.Message)
+		deps.UI.PrintBlock([]byte(opts.Message))
 		return nil
 
 	case *VariablesOpts:
@@ -472,23 +514,35 @@ func (c Cmd) releaseManager(director boshdir.Director) ReleaseManager {
 	relProv, relDirProv := c.releaseProviders()
 
 	releaseDirFactory := func(dir DirOrCWDArg) (boshrel.Reader, boshreldir.ReleaseDir) {
-		releaseReader := relDirProv.NewReleaseReader(dir.Path)
-		releaseDir := relDirProv.NewFSReleaseDir(dir.Path)
+		releaseReader := relDirProv.NewReleaseReader(dir.Path, c.BoshOpts.Parallel)
+		releaseDir := relDirProv.NewFSReleaseDir(dir.Path, c.BoshOpts.Parallel)
 		return releaseReader, releaseDir
 	}
 
 	releaseWriter := relProv.NewArchiveWriter()
 
-	createReleaseCmd := NewCreateReleaseCmd(releaseDirFactory, releaseWriter, c.deps.FS, c.deps.UI)
+	createReleaseCmd := NewCreateReleaseCmd(
+		releaseDirFactory,
+		releaseWriter,
+		c.deps.FS,
+		c.deps.UI,
+	)
 
 	releaseArchiveFactory := func(path string) boshdir.ReleaseArchive {
 		return boshdir.NewFSReleaseArchive(path, c.deps.FS)
 	}
 
 	uploadReleaseCmd := NewUploadReleaseCmd(
-		releaseDirFactory, releaseWriter, director, releaseArchiveFactory, c.deps.CmdRunner, c.deps.FS, c.deps.UI)
+		releaseDirFactory,
+		releaseWriter,
+		director,
+		releaseArchiveFactory,
+		c.deps.CmdRunner,
+		c.deps.FS,
+		c.deps.UI,
+	)
 
-	return NewReleaseManager(createReleaseCmd, uploadReleaseCmd)
+	return NewReleaseManager(createReleaseCmd, uploadReleaseCmd, c.BoshOpts.Parallel)
 }
 
 func (c Cmd) blobsDir(dir DirOrCWDArg) boshreldir.BlobsDir {
@@ -498,7 +552,7 @@ func (c Cmd) blobsDir(dir DirOrCWDArg) boshreldir.BlobsDir {
 
 func (c Cmd) releaseDir(dir DirOrCWDArg) boshreldir.ReleaseDir {
 	_, relDirProv := c.releaseProviders()
-	return relDirProv.NewFSReleaseDir(dir.Path)
+	return relDirProv.NewFSReleaseDir(dir.Path, c.BoshOpts.Parallel)
 }
 
 func (c Cmd) panicIfErr(err error) {

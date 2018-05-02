@@ -5,7 +5,7 @@ import (
 	boshui "github.com/cloudfoundry/bosh-cli/ui"
 	biproperty "github.com/cloudfoundry/bosh-utils/property"
 	boshsys "github.com/cloudfoundry/bosh-utils/system"
-	"github.com/pivotal-golang/yaml"
+	"gopkg.in/yaml.v2"
 )
 
 type RepackStemcellCmd struct {
@@ -36,6 +36,13 @@ func (c RepackStemcellCmd) Run(opts RepackStemcellOpts) error {
 		extractedStemcell.SetVersion(opts.Version)
 	}
 
+	if opts.EmptyImage {
+		err = extractedStemcell.EmptyImage()
+		if err != nil {
+			return err
+		}
+	}
+
 	if opts.CloudProperties != "" {
 		cloudProperties := new(biproperty.Map)
 		err = yaml.Unmarshal([]byte(opts.CloudProperties), cloudProperties)
@@ -44,6 +51,10 @@ func (c RepackStemcellCmd) Run(opts RepackStemcellOpts) error {
 		}
 
 		extractedStemcell.SetCloudProperties(*cloudProperties)
+	}
+
+	if len(opts.Format) != 0 {
+		extractedStemcell.SetFormat(opts.Format)
 	}
 
 	return extractedStemcell.Pack(opts.Args.PathToResult.ExpandedPath)

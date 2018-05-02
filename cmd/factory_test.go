@@ -17,8 +17,9 @@ import (
 
 var _ = Describe("Factory", func() {
 	var (
-		fs      *fakesys.FakeFileSystem
-		factory Factory
+		fs           *fakesys.FakeFileSystem
+		factory      Factory
+		fakeFilePath string
 	)
 
 	BeforeEach(func() {
@@ -32,6 +33,7 @@ var _ = Describe("Factory", func() {
 		deps.FS = fs
 
 		factory = NewFactory(deps)
+		fakeFilePath = filepath.Join("/", "file")
 	})
 
 	Describe("unknown commands, args and flags", func() {
@@ -192,12 +194,12 @@ var _ = Describe("Factory", func() {
 
 	Describe("deploy command", func() {
 		BeforeEach(func() {
-			err := fs.WriteFileString(filepath.Join("/", "file"), "")
+			err := fs.WriteFileString(fakeFilePath, "")
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("parses multiple skip-drain flags", func() {
-			cmd, err := factory.New([]string{"deploy", "--skip-drain=job1", "--skip-drain=job2", filepath.Join("/", "file")})
+			cmd, err := factory.New([]string{"deploy", "--skip-drain=job1", "--skip-drain=job2", fakeFilePath})
 			Expect(err).ToNot(HaveOccurred())
 
 			slug1, _ := boshdir.NewInstanceGroupOrInstanceSlugFromString("job1")
@@ -211,13 +213,13 @@ var _ = Describe("Factory", func() {
 		})
 
 		It("errors when excluding = from --skip-drain", func() {
-			_, err := factory.New([]string{"deploy", "--skip-drain", "job1", filepath.Join("/", "file")})
+			_, err := factory.New([]string{"deploy", "--skip-drain", "job1", fakeFilePath})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("Not found: open job1: no such file or directory"))
 		})
 
 		It("defaults --skip-drain option value to all", func() {
-			cmd, err := factory.New([]string{"deploy", "--skip-drain", filepath.Join("/", "file")})
+			cmd, err := factory.New([]string{"deploy", "--skip-drain", fakeFilePath})
 			Expect(err).ToNot(HaveOccurred())
 
 			opts := cmd.Opts.(*DeployOpts)
@@ -366,6 +368,7 @@ var _ = Describe("Factory", func() {
 			boshOpts.ResetRelease = ResetReleaseOpts{}
 			boshOpts.GenerateJob = GenerateJobOpts{}
 			boshOpts.GeneratePackage = GeneratePackageOpts{}
+			boshOpts.VendorPackage = VendorPackageOpts{}
 			boshOpts.CreateRelease = CreateReleaseOpts{}
 			boshOpts.FinalizeRelease = FinalizeReleaseOpts{}
 			boshOpts.Blobs = BlobsOpts{}
@@ -375,6 +378,14 @@ var _ = Describe("Factory", func() {
 			boshOpts.UploadBlobs = UploadBlobsOpts{}
 			boshOpts.SSH = SSHOpts{}
 			boshOpts.SCP = SCPOpts{}
+			boshOpts.Deploy = DeployOpts{}
+			boshOpts.UpdateRuntimeConfig = UpdateRuntimeConfigOpts{}
+			boshOpts.VMs = VMsOpts{}
+			boshOpts.Instances = InstancesOpts{}
+			boshOpts.Config = ConfigOpts{}
+			boshOpts.Configs = ConfigsOpts{}
+			boshOpts.UpdateConfig = UpdateConfigOpts{}
+			boshOpts.DeleteConfig = DeleteConfigOpts{}
 			return boshOpts
 		}
 
@@ -385,6 +396,7 @@ var _ = Describe("Factory", func() {
 			// Check against entire BoshOpts to avoid future missing assertions
 			Expect(clearNonGlobalOpts(cmd.BoshOpts)).To(Equal(BoshOpts{
 				ConfigPathOpt: "~/.bosh/config",
+				Parallel:      5,
 			}))
 		})
 
@@ -400,6 +412,7 @@ var _ = Describe("Factory", func() {
 				"--tty",
 				"--no-color",
 				"--non-interactive",
+				"--parallel", "123",
 				"locks",
 			}
 
@@ -417,6 +430,7 @@ var _ = Describe("Factory", func() {
 				TTYOpt:            true,
 				NoColorOpt:        true,
 				NonInteractiveOpt: true,
+				Parallel:          123,
 			}))
 		})
 

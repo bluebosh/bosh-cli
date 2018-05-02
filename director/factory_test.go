@@ -17,7 +17,7 @@ import (
 var _ = Describe("Factory", func() {
 	Describe("New", func() {
 		It("returns error if config is invalid", func() {
-			_, err := NewFactory(boshlog.NewLogger(boshlog.LevelNone)).New(Config{}, nil, nil)
+			_, err := NewFactory(boshlog.NewLogger(boshlog.LevelNone)).New(FactoryConfig{}, nil, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -60,7 +60,7 @@ var _ = Describe("Factory", func() {
 				server.Close()
 			})
 
-			DirectorRedirect := func(config Config) http.Header {
+			DirectorRedirect := func(config FactoryConfig) http.Header {
 				h := http.Header{}
 				// URL does not include port, creds
 				h.Add("Location", "https://"+config.Host+"/info")
@@ -68,7 +68,7 @@ var _ = Describe("Factory", func() {
 				return h
 			}
 
-			TasksRedirect := func(config Config) http.Header {
+			TasksRedirect := func(config FactoryConfig) http.Header {
 				h := http.Header{}
 				// URL does not include port, creds
 				h.Add("Location", "https://"+config.Host+"/tasks/123")
@@ -185,9 +185,16 @@ var _ = Describe("Factory", func() {
 				)
 
 				director.LatestCloudConfig()
-				_, _, args := logger.DebugArgsForCall(1)
 
-				Expect(args[0]).To(ContainSubstring("/cloud_configs?limit=1"))
+				debugMsgs := []interface{}{}
+				for i := 0; i < logger.DebugCallCount(); i++ {
+					_, _, args := logger.DebugArgsForCall(i)
+					if len(args) >= 1 {
+						debugMsgs = append(debugMsgs, args[0])
+					}
+				}
+
+				Expect(debugMsgs).To(ContainElement(ContainSubstring("/cloud_configs?limit=1")))
 			})
 
 			It("succeeds making requests and follow redirects with token", func() {
