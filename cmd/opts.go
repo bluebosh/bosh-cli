@@ -59,13 +59,14 @@ type BoshOpts struct {
 	// Misc
 	Locks   LocksOpts   `command:"locks"    description:"List current locks"`
 	CleanUp CleanUpOpts `command:"clean-up" description:"Clean up releases, stemcells, disks, etc."`
+	Curl    CurlOpts    `command:"curl"     description:"Make an HTTP request to the Director" hidden:"true"`
 
 	// Config
-	Config         ConfigOpts       `command:"config" alias:"c" description:"Show current config for either ID or both type and name"`
-	Configs        ConfigsOpts      `command:"configs" alias:"cs" description:"List configs"`
-	UpdateConfig   UpdateConfigOpts `command:"update-config" alias:"uc" description:"Update config"`
-	DeleteConfig   DeleteConfigOpts `command:"delete-config" alias:"dc" description:"Delete config"`
-	DiffConfigByID DiffConfigOpts   `command:"diff-config" description:"Diff two configs by ID"`
+	Config       ConfigOpts       `command:"config" alias:"c" description:"Show current config for either ID or both type and name"`
+	Configs      ConfigsOpts      `command:"configs" alias:"cs" description:"List configs"`
+	UpdateConfig UpdateConfigOpts `command:"update-config" alias:"uc" description:"Update config"`
+	DeleteConfig DeleteConfigOpts `command:"delete-config" alias:"dc" description:"Delete config"`
+	DiffConfig   DiffConfigOpts   `command:"diff-config" description:"Diff two configs by ID or content"`
 
 	// Cloud config
 	CloudConfig       CloudConfigOpts       `command:"cloud-config"        alias:"cc"  description:"Show current cloud config"`
@@ -94,10 +95,11 @@ type BoshOpts struct {
 	Event  EventOpts  `command:"event" description:"Show event details"`
 
 	// Stemcells
-	Stemcells      StemcellsOpts      `command:"stemcells"       alias:"ss"   description:"List stemcells"`
-	UploadStemcell UploadStemcellOpts `command:"upload-stemcell" alias:"us"   description:"Upload stemcell"`
-	DeleteStemcell DeleteStemcellOpts `command:"delete-stemcell" alias:"dels" description:"Delete stemcell"`
-	RepackStemcell RepackStemcellOpts `command:"repack-stemcell"              description:"Repack stemcell"`
+	Stemcells            StemcellsOpts              `command:"stemcells"       alias:"ss"   description:"List stemcells"`
+	InspectLocalStemcell InspectStemcellTarballOpts `command:"inspect-local-stemcell"     description:"Display information from stemcell metadata"`
+	UploadStemcell       UploadStemcellOpts         `command:"upload-stemcell" alias:"us"   description:"Upload stemcell"`
+	DeleteStemcell       DeleteStemcellOpts         `command:"delete-stemcell" alias:"dels" description:"Delete stemcell"`
+	RepackStemcell       RepackStemcellOpts         `command:"repack-stemcell"              description:"Repack stemcell"`
 
 	// Releases
 	Releases       ReleasesOpts       `command:"releases"        alias:"rs"   description:"List releases"`
@@ -112,9 +114,13 @@ type BoshOpts struct {
 
 	// Disks
 	Disks      DisksOpts      `command:"disks"       description:"List disks"`
-	AttachDisk AttachDiskOpts `command:"attach-disk" description:"Attaches disk to an instance"`
+	AttachDisk AttachDiskOpts `command:"attach-disk" description:"Attach disk to an instance"`
 	DeleteDisk DeleteDiskOpts `command:"delete-disk" description:"Delete disk"`
 	OrphanDisk OrphanDiskOpts `command:"orphan-disk" description:"Orphan disk"`
+
+	// Networks
+	Networks      NetworksOpts      `command:"networks"       description:"List networks"`
+	DeleteNetwork DeleteNetworkOpts `command:"delete-network" description:"Delete network"`
 
 	// Snapshots
 	Snapshots       SnapshotsOpts       `command:"snapshots"        description:"List snapshots"`
@@ -129,6 +135,7 @@ type BoshOpts struct {
 	Ignore             IgnoreOpts             `command:"ignore"                                         description:"Ignore an instance"`
 	Unignore           UnignoreOpts           `command:"unignore"                                       description:"Unignore an instance"`
 	CloudCheck         CloudCheckOpts         `command:"cloud-check"     alias:"cck" alias:"cloudcheck" description:"Cloud consistency check and interactive repair"`
+	OrphanedVMs        OrphanedVMsOpts        `command:"orphaned-vms"                                   description:"List all the orphaned VMs in all deployments"`
 
 	// Instance management
 	Logs     LogsOpts     `command:"logs"      description:"Fetch logs from instance(s)"`
@@ -172,12 +179,15 @@ type HelpOpts struct {
 }
 
 // Original bosh-init
+
 type CreateEnvOpts struct {
 	Args CreateEnvArgs `positional-args:"true" required:"true"`
 	VarFlags
 	OpsFlags
-	StatePath string `long:"state" value-name:"PATH" description:"State file path"`
-	Recreate  bool   `long:"recreate" description:"Recreate VM in deployment"`
+	SkipDrain               bool   `long:"skip-drain" description:"Skip running drain scripts"`
+	StatePath               string `long:"state" value-name:"PATH" description:"State file path"`
+	Recreate                bool   `long:"recreate" description:"Recreate VM in deployment"`
+	RecreatePersistentDisks bool   `long:"recreate-persistent-disks" description:"Recreate persistent disks in the deployment"`
 	cmd
 }
 
@@ -189,6 +199,7 @@ type DeleteEnvOpts struct {
 	Args DeleteEnvArgs `positional-args:"true" required:"true"`
 	VarFlags
 	OpsFlags
+	SkipDrain bool   `long:"skip-drain" description:"Skip running drain scripts"`
 	StatePath string `long:"state" value-name:"PATH" description:"State file path"`
 	cmd
 }
@@ -198,6 +209,7 @@ type DeleteEnvArgs struct {
 }
 
 // Environment
+
 type EnvironmentOpts struct {
 	cmd
 }
@@ -228,6 +240,7 @@ type LogOutOpts struct {
 }
 
 // Tasks
+
 type TaskOpts struct {
 	Args TaskArgs `positional-args:"true"`
 
@@ -260,6 +273,7 @@ type CancelTaskOpts struct {
 }
 
 // Misc
+
 type LocksOpts struct {
 	cmd
 }
@@ -272,6 +286,8 @@ type CleanUpOpts struct {
 
 type AttachDiskOpts struct {
 	Args AttachDiskArgs `positional-args:"true" required:"true"`
+
+	DiskProperties string `long:"disk-properties" description:"Disk properties to use for the new disk. Use 'copy' to copy the properties from the currently attached disk" optional:"true"`
 
 	cmd
 }
@@ -299,6 +315,7 @@ type InterpolateArgs struct {
 }
 
 // Config
+
 type ConfigOpts struct {
 	Args ConfigArgs `positional-args:"true"`
 	Name string     `long:"name" description:"Config name"`
@@ -320,20 +337,18 @@ type ConfigsOpts struct {
 }
 
 type DiffConfigOpts struct {
-	Args DiffConfigArgs `positional-args:"true" required:"true"`
-
+	FromID      string       `long:"from-id" description:"ID of first config to compare"`
+	ToID        string       `long:"to-id" description:"ID of second config to compare"`
+	FromContent FileBytesArg `long:"from-content" description:"Path to first config file to compare"`
+	ToContent   FileBytesArg `long:"to-content" description:"Path to second config file to compare"`
 	cmd
 }
 
-type DiffConfigArgs struct {
-	FromID string `positional-arg-name:"FROM" description:"ID of first config to compare"`
-	ToID   string `positional-arg-name:"TO" description:"ID of second config to compare"`
-}
-
 type UpdateConfigOpts struct {
-	Args UpdateConfigArgs `positional-args:"true" required:"true"`
-	Type string           `long:"type" required:"true" description:"Config type, e.g. 'cloud', 'runtime', or 'cpi'"`
-	Name string           `long:"name" required:"true" description:"Config name"`
+	Args             UpdateConfigArgs `positional-args:"true" required:"true"`
+	Type             string           `long:"type" required:"true" description:"Config type, e.g. 'cloud', 'runtime', or 'cpi'"`
+	Name             string           `long:"name" required:"true" description:"Config name"`
+	ExpectedLatestId string           `long:"expected-latest-id" description:"Expected ID of latest config"`
 	VarFlags
 	OpsFlags
 	cmd
@@ -356,6 +371,7 @@ type DeleteConfigArgs struct {
 }
 
 // Cloud config
+
 type CloudConfigOpts struct {
 	cmd
 }
@@ -390,6 +406,7 @@ type UpdateCPIConfigArgs struct {
 }
 
 // Runtime config
+
 type RuntimeConfigOpts struct {
 	Name string `long:"name" description:"Runtime-Config name (default: '')" default:""`
 	cmd
@@ -411,6 +428,7 @@ type UpdateRuntimeConfigArgs struct {
 }
 
 // Deployments
+
 type DeploymentOpts struct {
 	cmd
 }
@@ -427,9 +445,10 @@ type DeployOpts struct {
 
 	NoRedact bool `long:"no-redact" description:"Show non-redacted manifest diff"`
 
-	Recreate  bool                `long:"recreate"                          description:"Recreate all VMs in deployment"`
-	Fix       bool                `long:"fix"                               description:"Recreate unresponsive instances"`
-	SkipDrain []boshdir.SkipDrain `long:"skip-drain" value-name:"INSTANCE-GROUP"  description:"Skip running drain scripts for specific instance groups" optional:"true" optional-value:"*"`
+	Recreate                bool                `long:"recreate"                                description:"Recreate all VMs in deployment"`
+	RecreatePersistentDisks bool                `long:"recreate-persistent-disks"               description:"Recreate all persistent disks in deployment"`
+	Fix                     bool                `long:"fix"                                     description:"Recreate an instance with an unresponsive agent instead of erroring"`
+	SkipDrain               []boshdir.SkipDrain `long:"skip-drain" value-name:"INSTANCE-GROUP"  description:"Skip running drain scripts for specific instance groups" optional:"true" optional-value:"*"`
 
 	Canaries    string `long:"canaries" description:"Override manifest values for canaries"`
 	MaxInFlight string `long:"max-in-flight" description:"Override manifest values for max_in_flight"`
@@ -453,6 +472,7 @@ type DeleteDeploymentOpts struct {
 }
 
 // Events
+
 type EventsOpts struct {
 	BeforeID   string `long:"before-id"    description:"Show events with ID less than the given ID"`
 	Before     string `long:"before"       description:"Show events before the given timestamp (ex: 2016-05-08 17:26:32)"`
@@ -479,6 +499,7 @@ type EventArgs struct {
 }
 
 // Stemcells
+
 type StemcellsOpts struct {
 	cmd
 }
@@ -528,7 +549,17 @@ type RepackStemcellArgs struct {
 	PathToResult   FileArg `positional-arg-name:"PATH-TO-RESULT" description:"Path to repacked stemcell"`
 }
 
+type InspectStemcellTarballOpts struct {
+	Args InspectStemcellTarballArgs `positional-args:"true" required:"true"`
+	cmd
+}
+
+type InspectStemcellTarballArgs struct {
+	PathToStemcell string `positional-arg-name:"PATH-TO-STEMCELL" description:"Path to stemcell"`
+}
+
 // Releases
+
 type ReleasesOpts struct {
 	cmd
 }
@@ -594,6 +625,7 @@ type InspectReleaseArgs struct {
 }
 
 // Errands
+
 type ErrandsOpts struct {
 	cmd
 }
@@ -620,7 +652,24 @@ type RunErrandArgs struct {
 	Name string `positional-arg-name:"NAME"`
 }
 
+// Networks
+
+type NetworksOpts struct {
+	Orphaned bool `long:"orphaned" short:"o" description:"List orphaned networks"`
+	cmd
+}
+
+type DeleteNetworkOpts struct {
+	Args DeleteNetworkArgs `positional-args:"true" required:"true"`
+	cmd
+}
+
+type DeleteNetworkArgs struct {
+	Name string `positional-arg-name:"name"`
+}
+
 // Disks
+
 type DisksOpts struct {
 	Orphaned bool `long:"orphaned" short:"o" description:"List orphaned disks"`
 	cmd
@@ -644,6 +693,7 @@ type OrphanDiskArgs struct {
 }
 
 // Snapshots
+
 type SnapshotsOpts struct {
 	Args InstanceSlugArgs `positional-args:"true"`
 	cmd
@@ -681,6 +731,7 @@ type InstanceSlugArgs struct {
 }
 
 // Instances
+
 type InstancesOpts struct {
 	Details    bool `long:"details" short:"i" description:"Show details including VM CID, persistent disk CID, etc."`
 	DNS        bool `long:"dns"               description:"Show DNS A records"`
@@ -706,7 +757,12 @@ type CloudCheckOpts struct {
 	cmd
 }
 
+type OrphanedVMsOpts struct {
+	cmd
+}
+
 // Instance management
+
 type UpdateResurrectionOpts struct {
 	Args UpdateResurrectionArgs `positional-args:"true" required:"true"`
 	cmd
@@ -787,7 +843,7 @@ type RecreateOpts struct {
 
 	SkipDrain bool `long:"skip-drain" description:"Skip running drain scripts"`
 	Force     bool `long:"force"      description:"No-op for backwards compatibility"`
-	Fix       bool `long:"fix"        description:"Fix unresponsive VMs"`
+	Fix       bool `long:"fix"        description:"Recreate an instance with an unresponsive agent instead of erroring"`
 
 	Canaries    string `long:"canaries" description:"Override manifest values for canaries"`
 	MaxInFlight string `long:"max-in-flight" description:"Override manifest values for max_in_flight"`
@@ -802,6 +858,7 @@ type AllOrInstanceGroupOrInstanceSlugArgs struct {
 }
 
 // SSH instance
+
 type SSHOpts struct {
 	Args AllOrInstanceGroupOrInstanceSlugArgs `positional-args:"true"`
 
@@ -842,6 +899,7 @@ type GatewayFlags struct {
 }
 
 // Release creation
+
 type InitReleaseOpts struct {
 	Directory DirOrCWDArg `long:"dir" description:"Release directory path if not current working directory" default:"."`
 
@@ -948,6 +1006,7 @@ type FinalizeReleaseArgs struct {
 }
 
 // Blobs
+
 type BlobsOpts struct {
 	Directory DirOrCWDArg `long:"dir" description:"Release directory path if not current working directory" default:"."`
 	cmd
@@ -986,6 +1045,22 @@ type SyncBlobsOpts struct {
 type UploadBlobsOpts struct {
 	Directory DirOrCWDArg `long:"dir" description:"Release directory path if not current working directory" default:"."`
 	cmd
+}
+
+type CurlOpts struct {
+	Args CurlArgs `positional-args:"true"`
+
+	Method  string       `long:"method" short:"X" description:"HTTP method" default:"GET"`
+	Headers []CurlHeader `long:"header" short:"H" description:"HTTP header in 'name: value' format"`
+	Body    FileBytesArg `long:"body"             description:"HTTP request body (path)"`
+
+	ShowHeaders bool `long:"show-headers" short:"i"   description:"Show HTTP headers"`
+
+	cmd
+}
+
+type CurlArgs struct {
+	Path string `positional-arg-name:"PATH" description:"URL path which can include query string"`
 }
 
 // MessageOpts is used for version and help flags

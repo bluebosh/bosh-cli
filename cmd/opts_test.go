@@ -322,8 +322,8 @@ var _ = Describe("Opts", func() {
 
 		Describe("DiffConfig", func() {
 			It("contains desired values", func() {
-				Expect(getStructTagForName("DiffConfigByID", opts)).To(Equal(
-					`command:"diff-config" description:"Diff two configs by ID"`,
+				Expect(getStructTagForName("DiffConfig", opts)).To(Equal(
+					`command:"diff-config" description:"Diff two configs by ID or content"`,
 				))
 			})
 		})
@@ -492,6 +492,14 @@ var _ = Describe("Opts", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("InspectRelease", opts)).To(Equal(
 					`command:"inspect-release" description:"List release contents such as jobs"`,
+				))
+			})
+		})
+
+		Describe("InspectLocalStemcell", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("InspectLocalStemcell", opts)).To(Equal(
+					`command:"inspect-local-stemcell" description:"Display information from stemcell metadata"`,
 				))
 			})
 		})
@@ -779,7 +787,15 @@ var _ = Describe("Opts", func() {
 		Describe("AttachDisk", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("AttachDisk", opts)).To(Equal(
-					`command:"attach-disk" description:"Attaches disk to an instance"`,
+					`command:"attach-disk" description:"Attach disk to an instance"`,
+				))
+			})
+		})
+
+		Describe("Curl", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Curl", opts)).To(Equal(
+					`command:"curl" description:"Make an HTTP request to the Director" hidden:"true"`,
 				))
 			})
 		})
@@ -807,6 +823,18 @@ var _ = Describe("Opts", func() {
 		It("has --recreate", func() {
 			Expect(getStructTagForName("Recreate", opts)).To(Equal(
 				`long:"recreate" description:"Recreate VM in deployment"`,
+			))
+		})
+
+		It("has --recreate-persistent-disks", func() {
+			Expect(getStructTagForName("RecreatePersistentDisks", opts)).To(Equal(
+				`long:"recreate-persistent-disks" description:"Recreate persistent disks in the deployment"`,
+			))
+		})
+
+		It("has --skip-drain", func() {
+			Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
+				`long:"skip-drain" description:"Skip running drain scripts"`,
 			))
 		})
 	})
@@ -843,6 +871,12 @@ var _ = Describe("Opts", func() {
 		It("has --state", func() {
 			Expect(getStructTagForName("StatePath", opts)).To(Equal(
 				`long:"state" value-name:"PATH" description:"State file path"`,
+			))
+		})
+
+		It("has --skip-drain", func() {
+			Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
+				`long:"skip-drain" description:"Skip running drain scripts"`,
 			))
 		})
 	})
@@ -972,30 +1006,17 @@ var _ = Describe("Opts", func() {
 
 		Describe("Args", func() {
 			It("contains desired values", func() {
-				Expect(getStructTagForName("Args", opts)).To(Equal(`positional-args:"true" required:"true"`))
-			})
-		})
-	})
-
-	Describe("DiffConfigArgs", func() {
-		var opts *DiffConfigArgs
-
-		BeforeEach(func() {
-			opts = &DiffConfigArgs{}
-		})
-
-		Describe("FromID", func() {
-			It("contains desired values", func() {
 				Expect(getStructTagForName("FromID", opts)).To(Equal(
-					`positional-arg-name:"FROM" description:"ID of first config to compare"`,
+					`long:"from-id" description:"ID of first config to compare"`,
 				))
-			})
-		})
-
-		Describe("ToID", func() {
-			It("contains desired values", func() {
 				Expect(getStructTagForName("ToID", opts)).To(Equal(
-					`positional-arg-name:"TO" description:"ID of second config to compare"`,
+					`long:"to-id" description:"ID of second config to compare"`,
+				))
+				Expect(getStructTagForName("FromContent", opts)).To(Equal(
+					`long:"from-content" description:"Path to first config file to compare"`,
+				))
+				Expect(getStructTagForName("ToContent", opts)).To(Equal(
+					`long:"to-content" description:"Path to second config file to compare"`,
 				))
 			})
 		})
@@ -1018,6 +1039,7 @@ var _ = Describe("Opts", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Type", opts)).To(Equal(`long:"type" required:"true" description:"Config type, e.g. 'cloud', 'runtime', or 'cpi'"`))
 				Expect(getStructTagForName("Name", opts)).To(Equal(`long:"name" required:"true" description:"Config name"`))
+				Expect(getStructTagForName("ExpectedLatestId", opts)).To(Equal(`long:"expected-latest-id" description:"Expected ID of latest config"`))
 			})
 		})
 	})
@@ -1214,6 +1236,12 @@ var _ = Describe("Opts", func() {
 				Expect(getStructTagForName("Args", opts)).To(Equal(`positional-args:"true" required:"true"`))
 			})
 		})
+
+		Describe("DiskProperties", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("DiskProperties", opts)).To(Equal(`long:"disk-properties" description:"Disk properties to use for the new disk. Use 'copy' to copy the properties from the currently attached disk" optional:"true"`))
+			})
+		})
 	})
 
 	Describe("AttachDiskArgs", func() {
@@ -1376,6 +1404,14 @@ var _ = Describe("Opts", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Recreate", opts)).To(Equal(
 					`long:"recreate" description:"Recreate all VMs in deployment"`,
+				))
+			})
+		})
+
+		Describe("RecreatePersistentDisks", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("RecreatePersistentDisks", opts)).To(Equal(
+					`long:"recreate-persistent-disks" description:"Recreate all persistent disks in deployment"`,
 				))
 			})
 		})
@@ -2536,7 +2572,7 @@ var _ = Describe("Opts", func() {
 		Describe("Fix", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Fix", opts)).To(Equal(
-					`long:"fix" description:"Fix unresponsive VMs"`,
+					`long:"fix" description:"Recreate an instance with an unresponsive agent instead of erroring"`,
 				))
 			})
 		})
@@ -3104,6 +3140,68 @@ var _ = Describe("Opts", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Directory", opts)).To(Equal(
 					`long:"dir" description:"Release directory path if not current working directory" default:"."`,
+				))
+			})
+		})
+	})
+
+	Describe("CurlOpts", func() {
+		var opts *CurlOpts
+
+		BeforeEach(func() {
+			opts = &CurlOpts{}
+		})
+
+		Describe("Args", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Args", opts)).To(Equal(`positional-args:"true"`))
+			})
+		})
+
+		Describe("Method", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Method", opts)).To(Equal(
+					`long:"method" short:"X" description:"HTTP method" default:"GET"`,
+				))
+			})
+		})
+
+		Describe("Headers", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Headers", opts)).To(Equal(
+					`long:"header" short:"H" description:"HTTP header in 'name: value' format"`,
+				))
+			})
+		})
+
+		Describe("Body", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Body", opts)).To(Equal(
+					`long:"body" description:"HTTP request body (path)"`,
+				))
+			})
+		})
+
+		Describe("ShowHeaders", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("ShowHeaders", opts)).To(Equal(
+					`long:"show-headers" short:"i" description:"Show HTTP headers"`,
+				))
+			})
+		})
+	})
+
+	Describe("CurlArgs", func() {
+		var args *CurlArgs
+
+		BeforeEach(func() {
+			args = &CurlArgs{}
+		})
+
+		Describe("Path", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Path", args)).To(Equal(
+					`positional-arg-name:"PATH" description:"URL path which can include query string"`,
 				))
 			})
 		})

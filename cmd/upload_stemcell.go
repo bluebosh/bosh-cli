@@ -23,7 +23,7 @@ func NewUploadStemcellCmd(
 	return UploadStemcellCmd{
 		director:               director,
 		stemcellArchiveFactory: stemcellArchiveFactory,
-		ui: ui,
+		ui:                     ui,
 	}
 }
 
@@ -49,12 +49,12 @@ func (c UploadStemcellCmd) uploadRemote(url string, opts UploadStemcellOpts) err
 func (c UploadStemcellCmd) uploadFile(path string, fix bool) error {
 	archive := c.stemcellArchiveFactory(path)
 
-	name, version, err := archive.Info()
+	stemcellMetadata, err := archive.Info()
 	if err != nil {
 		return bosherr.WrapErrorf(err, "Retrieving stemcell info")
 	}
 
-	necessary, err := c.needToUpload(name, version, fix)
+	necessary, err := c.needToUpload(stemcellMetadata.Name, stemcellMetadata.Version, fix)
 	if err != nil || !necessary {
 		return err
 	}
