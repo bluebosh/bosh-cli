@@ -1,3 +1,3 @@
 package cmd
 
-const VersionLabel = "2.0.29-softlayer-1f8ec43-2017-07-19"
+const VersionLabel = "6.0.0.1-softlayer-edf2488-2019-08-21"
