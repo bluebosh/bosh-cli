@@ -280,6 +280,14 @@ var _ = Describe("Opts", func() {
 			})
 		})
 
+		Describe("CancelTasks", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("CancelTasks", opts)).To(Equal(
+					`command:"cancel-tasks" alias:"cts" description:"Cancel tasks at their next checkpoints"`,
+				))
+			})
+		})
+
 		Describe("Locks", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Locks", opts)).To(Equal(
@@ -291,7 +299,7 @@ var _ = Describe("Opts", func() {
 		Describe("CleanUp", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("CleanUp", opts)).To(Equal(
-					`command:"clean-up" description:"Clean up releases, stemcells, disks, etc."`,
+					`command:"clean-up" description:"Clean up old unused resources except orphaned disks"`,
 				))
 			})
 		})
@@ -492,6 +500,14 @@ var _ = Describe("Opts", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("InspectRelease", opts)).To(Equal(
 					`command:"inspect-release" description:"List release contents such as jobs"`,
+				))
+			})
+		})
+
+		Describe("InspectLocalRelease", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("InspectLocalRelease", opts)).To(Equal(
+					`command:"inspect-local-release" description:"Display information from release metadata"`,
 				))
 			})
 		})
@@ -834,7 +850,7 @@ var _ = Describe("Opts", func() {
 
 		It("has --skip-drain", func() {
 			Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
-				`long:"skip-drain" description:"Skip running drain scripts"`,
+				`long:"skip-drain" description:"Skip running drain and pre-stop scripts"`,
 			))
 		})
 	})
@@ -876,7 +892,7 @@ var _ = Describe("Opts", func() {
 
 		It("has --skip-drain", func() {
 			Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
-				`long:"skip-drain" description:"Skip running drain scripts"`,
+				`long:"skip-drain" description:"Skip running drain and pre-stop scripts"`,
 			))
 		})
 	})
@@ -1100,6 +1116,36 @@ var _ = Describe("Opts", func() {
 		})
 	})
 
+	Describe("UnaliasEnvOpts", func() {
+		var opts *UnaliasEnvOpts
+
+		BeforeEach(func() {
+			opts = &UnaliasEnvOpts{}
+		})
+
+		Describe("Args", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Args", opts)).To(Equal(`positional-args:"true" required:"true"`))
+			})
+		})
+	})
+
+	Describe("UnaliasEnvArgs", func() {
+		var args *UnaliasEnvArgs
+
+		BeforeEach(func() {
+			args = &UnaliasEnvArgs{}
+		})
+
+		Describe("Alias", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Alias", args)).To(Equal(
+					`positional-arg-name:"ALIAS" description:"Environment alias"`,
+				))
+			})
+		})
+	})
+
 	Describe("TaskOpts", func() {
 		var opts *TaskOpts
 
@@ -1180,7 +1226,7 @@ var _ = Describe("Opts", func() {
 		Describe("Recent", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Recent", opts)).To(Equal(
-					`long:"recent" short:"r" description:"Number of tasks to show" optional:"true" optional-value:"30"`,
+					`long:"recent" short:"r" description:"Show 30 recent tasks. Use '=' to specify the number of tasks to show" optional:"true" optional-value:"30"`,
 				))
 			})
 		})
@@ -1208,6 +1254,30 @@ var _ = Describe("Opts", func() {
 		})
 	})
 
+	Describe("CancelTasksOpts", func() {
+		var opts *CancelTasksOpts
+
+		BeforeEach(func() {
+			opts = &CancelTasksOpts{}
+		})
+
+		Describe("Types", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Types", opts)).To(Equal(
+					`long:"type" short:"t" description:"task types to cancel (cck_scan_and_fix, cck_apply, update_release, update_deployment, vms, etc) (default is all types)" optional:"true"`,
+				))
+			})
+		})
+
+		Describe("States", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("States", opts)).To(Equal(
+					`long:"state" short:"s" description:"task states to cancel (queued, processing) (default: queued)" optional:"true"`,
+				))
+			})
+		})
+	})
+
 	Describe("CleanUpOpts", func() {
 		var opts *CleanUpOpts
 
@@ -1218,7 +1288,7 @@ var _ = Describe("Opts", func() {
 		Describe("All", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("All", opts)).To(Equal(
-					`long:"all" description:"Remove all unused releases, stemcells, etc.; otherwise most recent resources will be kept"`,
+					`long:"all" description:"Clean up all unused resources including orphaned disks"`,
 				))
 			})
 		})
@@ -1427,7 +1497,7 @@ var _ = Describe("Opts", func() {
 		Describe("SkipDrain", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
-					`long:"skip-drain" value-name:"INSTANCE-GROUP" description:"Skip running drain scripts for specific instance groups" optional:"true" optional-value:"*"`,
+					`long:"skip-drain" value-name:"INSTANCE-GROUP" description:"Skip running drain and pre-stop scripts for specific instance groups" optional:"true" optional-value:"*"`,
 				))
 			})
 		})
@@ -1867,6 +1937,36 @@ var _ = Describe("Opts", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Slug", opts)).To(Equal(
 					`positional-arg-name:"NAME/VERSION"`,
+				))
+			})
+		})
+	})
+
+	Describe("InspectLocalReleaseOpts", func() {
+		var opts *InspectLocalReleaseOpts
+
+		BeforeEach(func() {
+			opts = &InspectLocalReleaseOpts{}
+		})
+
+		Describe("Args", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("Args", opts)).To(Equal(`positional-args:"true" required:"true"`))
+			})
+		})
+	})
+
+	Describe("InspectLocalReleaseArgs", func() {
+		var opts *InspectLocalReleaseArgs
+
+		BeforeEach(func() {
+			opts = &InspectLocalReleaseArgs{}
+		})
+
+		Describe("PathToRelease", func() {
+			It("contains desired values", func() {
+				Expect(getStructTagForName("PathToRelease", opts)).To(Equal(
+					`positional-arg-name:"PATH-TO-RELEASE" description:"Path to release"`,
 				))
 			})
 		})
@@ -2383,14 +2483,6 @@ var _ = Describe("Opts", func() {
 			})
 		})
 
-		Describe("Force", func() {
-			It("contains desired values", func() {
-				Expect(getStructTagForName("Force", opts)).To(Equal(
-					`long:"force" description:"No-op for backwards compatibility"`,
-				))
-			})
-		})
-
 		Describe("Canaries", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("Canaries", opts)).To(Equal(
@@ -2440,15 +2532,7 @@ var _ = Describe("Opts", func() {
 		Describe("SkipDrain", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
-					`long:"skip-drain" description:"Skip running drain scripts"`,
-				))
-			})
-		})
-
-		Describe("Force", func() {
-			It("contains desired values", func() {
-				Expect(getStructTagForName("Force", opts)).To(Equal(
-					`long:"force" description:"No-op for backwards compatibility"`,
+					`long:"skip-drain" description:"Skip running drain and pre-stop scripts"`,
 				))
 			})
 		})
@@ -2486,15 +2570,7 @@ var _ = Describe("Opts", func() {
 		Describe("SkipDrain", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
-					`long:"skip-drain" description:"Skip running drain scripts"`,
-				))
-			})
-		})
-
-		Describe("Force", func() {
-			It("contains desired values", func() {
-				Expect(getStructTagForName("Force", opts)).To(Equal(
-					`long:"force" description:"No-op for backwards compatibility"`,
+					`long:"skip-drain" description:"Skip running drain and pre-stop scripts"`,
 				))
 			})
 		})
@@ -2532,15 +2608,7 @@ var _ = Describe("Opts", func() {
 		Describe("SkipDrain", func() {
 			It("contains desired values", func() {
 				Expect(getStructTagForName("SkipDrain", opts)).To(Equal(
-					`long:"skip-drain" description:"Skip running drain scripts"`,
-				))
-			})
-		})
-
-		Describe("Force", func() {
-			It("contains desired values", func() {
-				Expect(getStructTagForName("Force", opts)).To(Equal(
-					`long:"force" description:"No-op for backwards compatibility"`,
+					`long:"skip-drain" description:"Skip running drain and pre-stop scripts"`,
 				))
 			})
 		})

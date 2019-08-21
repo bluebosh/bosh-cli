@@ -18,16 +18,18 @@ var _ = Describe("VariablesCmd", func() {
 		ui         *fakeui.FakeUI
 		deployment *fakedir.FakeDeployment
 		command    VariablesCmd
+		opts       VariablesOpts
 	)
 
 	BeforeEach(func() {
 		ui = &fakeui.FakeUI{}
 		deployment = &fakedir.FakeDeployment{}
 		command = NewVariablesCmd(ui, deployment)
+		opts = VariablesOpts{}
 	})
 
 	Describe("Run", func() {
-		act := func() error { return command.Run() }
+		act := func() error { return command.Run(opts) }
 
 		It("lists variables", func() {
 			variables := []boshdir.VariableResult{
@@ -44,7 +46,10 @@ var _ = Describe("VariablesCmd", func() {
 			Expect(ui.Table).To(Equal(boshtbl.Table{
 				Content: "variables",
 
-				Header: []boshtbl.Header{boshtbl.NewHeader("ID"), boshtbl.NewHeader("Name")},
+				Header: []boshtbl.Header{
+					boshtbl.NewHeader("ID"),
+					boshtbl.NewHeader("Name"),
+				},
 
 				SortBy: []boshtbl.ColumnSort{
 					{Column: 1, Asc: true},
