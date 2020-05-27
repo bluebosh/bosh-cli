@@ -5,6 +5,7 @@ import (
 
 	"code.cloudfoundry.org/workpool"
 
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	boshdir "github.com/cloudfoundry/bosh-cli/director"
 	boshui "github.com/cloudfoundry/bosh-cli/ui"
 	boshtbl "github.com/cloudfoundry/bosh-cli/ui/table"
@@ -32,6 +33,7 @@ func (c VMsCmd) Run(opts VMsOpts) error {
 		VMDetails:         true,
 		DeploymentDetails: false,
 		Details:           false,
+		Stemcell:          true,
 		DNS:               opts.DNS,
 		Vitals:            opts.Vitals,
 		CloudProperties:   opts.CloudProperties,

@@ -23,6 +23,7 @@ import (
 	bicloud "github.com/cloudfoundry/bosh-cli/cloud"
 	mock_cloud "github.com/cloudfoundry/bosh-cli/cloud/mocks"
 	bicmd "github.com/cloudfoundry/bosh-cli/cmd"
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	biconfig "github.com/cloudfoundry/bosh-cli/config"
 	mock_config "github.com/cloudfoundry/bosh-cli/config/mocks"
 	bicpirel "github.com/cloudfoundry/bosh-cli/cpi/release"
@@ -72,6 +73,11 @@ var _ = Describe("CreateEnvCmd", func() {
 	})
 
 	Describe("Run", func() {
+		const (
+			directorID = "generated-director-uuid"
+			mbusURL    = "http://fake-mbus-user:fake-mbus-password@fake-mbus-endpoint"
+		)
+
 		var (
 			command       *bicmd.CreateEnvCmd
 			fs            *fakesys.FakeFileSystem
@@ -112,7 +118,6 @@ var _ = Describe("CreateEnvCmd", func() {
 			setupDeploymentStateService       biconfig.DeploymentStateService
 			fakeDeploymentValidator           *fakebideplval.FakeValidator
 
-			directorID          = "generated-director-uuid"
 			fakeUUIDGenerator   *fakeuuid.FakeGenerator
 			configUUIDGenerator *fakeuuid.FakeGenerator
 
@@ -122,13 +127,11 @@ var _ = Describe("CreateEnvCmd", func() {
 			deploymentStatePath    string
 			cpiReleaseTarballPath  string
 			stemcellTarballPath    string
-			stemcellApiVersion     = 2
-			cpiApiVersion          = 2
+			stemcellApiVersion     int
+			cpiApiVersion          int
 			extractedStemcell      bistemcell.ExtractedStemcell
 
 			expectDeploy *gomock.Call
-
-			mbusURL = "http://fake-mbus-user:fake-mbus-password@fake-mbus-endpoint"
 
 			releaseSetManifest     birelsetmanifest.Manifest
 			template               bidepltpl.DeploymentTemplate
@@ -137,7 +140,7 @@ var _ = Describe("CreateEnvCmd", func() {
 
 			cloudStemcell bistemcell.CloudStemcell
 
-			defaultCreateEnvOpts bicmd.CreateEnvOpts
+			defaultCreateEnvOpts CreateEnvOpts
 
 			expectedSkipDrain bool
 
@@ -300,11 +303,13 @@ var _ = Describe("CreateEnvCmd", func() {
 				return cpiRelease, nil
 			}
 
-			defaultCreateEnvOpts = bicmd.CreateEnvOpts{
-				Args: bicmd.CreateEnvArgs{
-					Manifest: bicmd.FileBytesWithPathArg{Path: deploymentManifestPath},
+			defaultCreateEnvOpts = CreateEnvOpts{
+				Args: CreateEnvArgs{
+					Manifest: FileBytesWithPathArg{Path: deploymentManifestPath},
 				},
 			}
+			stemcellApiVersion = 2
+			cpiApiVersion = 2
 		})
 
 		JustBeforeEach(func() {
@@ -470,10 +475,10 @@ var _ = Describe("CreateEnvCmd", func() {
 
 			Context("when state file is specified", func() {
 				It("prints specified state file path", func() {
-					createEnvOptsWithStatePath := bicmd.CreateEnvOpts{
+					createEnvOptsWithStatePath := CreateEnvOpts{
 						StatePath: filepath.Join("/", "specified", "path", "to", "cool-state.json"),
-						Args: bicmd.CreateEnvArgs{
-							Manifest: bicmd.FileBytesWithPathArg{Path: deploymentManifestPath},
+						Args: CreateEnvArgs{
+							Manifest: FileBytesWithPathArg{Path: deploymentManifestPath},
 						},
 					}
 
@@ -691,7 +696,7 @@ var _ = Describe("CreateEnvCmd", func() {
 			err := command.Run(fakeStage, defaultCreateEnvOpts)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(fakeStage.PerformCalls[3]).To(Equal(&fakebiui.PerformCall{
+			Expect(fakeStage.PerformCalls[2]).To(Equal(&fakebiui.PerformCall{
 				Name:  "deploying",
 				Stage: &fakebiui.FakeStage{}, // mock deployer doesn't add sub-stages
 			}))

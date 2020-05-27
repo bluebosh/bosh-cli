@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"fmt"
+
 	boshcmdfakes "github.com/cloudfoundry/bosh-utils/fileutil/fakes"
 	biproperty "github.com/cloudfoundry/bosh-utils/property"
 	fakesys "github.com/cloudfoundry/bosh-utils/system/fakes"
@@ -72,6 +73,7 @@ var _ = Describe("Stemcell", func() {
 		var removeAllCalled bool
 
 		BeforeEach(func() {
+			removeAllCalled = false
 			fakefs.RemoveAllStub = func(_ string) error {
 				removeAllCalled = true
 				return nil
@@ -325,12 +327,11 @@ var _ = Describe("Stemcell", func() {
 		)
 
 		BeforeEach(func() {
+			removeAllCalled = false
 			extractedPath = "extracted-path"
 			destinationPath = "destination/tarball.tgz"
 
 			fakefs.MkdirAll("destination", os.ModeDir)
-			file := fakesys.NewFakeFile(destinationPath, fakefs)
-			fakefs.RegisterOpenFile(destinationPath, file)
 
 			stemcell = NewExtractedStemcell(
 				manifest,
@@ -405,8 +406,6 @@ var _ = Describe("Stemcell", func() {
 		})
 
 		Context("when the packaging fails", func() {
-			var err error
-
 			Context("when the extracted stemcell can't save its contents", func() {
 				It("returns an error", func() {
 					fakefs.RemoveAllStub = func(path string) error {
@@ -416,7 +415,7 @@ var _ = Describe("Stemcell", func() {
 					}
 					fakefs.WriteFileError = errors.New("could not write file")
 
-					err = stemcell.Pack(destinationPath)
+					err := stemcell.Pack(destinationPath)
 					Expect(err).To(HaveOccurred())
 
 					Expect(removeAllCalled).To(BeTrue())
@@ -434,7 +433,7 @@ var _ = Describe("Stemcell", func() {
 						return errors.New("Not error.")
 					}
 
-					err = stemcell.Pack(destinationPath)
+					err := stemcell.Pack(destinationPath)
 					Expect(err).To(HaveOccurred())
 
 					Expect(compressor.CompressFilesInDirDir).To(Equal(extractedPath))
@@ -452,7 +451,7 @@ var _ = Describe("Stemcell", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("could not copy file into place"))
 
-				Expect(removeAllCalled).To(BeTrue())
+				Expect(removeAllCalled).To(BeFalse())
 			})
 		})
 	})

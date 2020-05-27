@@ -21,6 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
+
+	"golang.org/x/oauth2/google"
 
 	"log"
 
@@ -198,4 +201,28 @@ func (client *GCSBlobstore) exists(gcs *storage.Client, dest string) (bool, erro
 
 func (client *GCSBlobstore) readOnly() bool {
 	return client.authenticatedGCS == nil
+}
+
+func (client *GCSBlobstore) Sign(id string, action string, expiry time.Duration) (string, error) {
+	token, err := google.JWTConfigFromJSON([]byte(client.config.ServiceAccountFile), storage.ScopeFullControl)
+	if err != nil {
+		return "", err
+	}
+	options := storage.SignedURLOptions{
+		Method:         action,
+		Expires:        time.Now().Add(expiry),
+		PrivateKey:     token.PrivateKey,
+		GoogleAccessID: token.Email,
+		Scheme:         storage.SigningSchemeV4,
+	}
+
+	// GET/PUT to the resultant signed url must include, in addition to the below:
+	// 'x-goog-encryption-key' and 'x-goog-encryption-key-hash'
+	willEncrypt := len(client.config.EncryptionKey) > 0
+	if willEncrypt {
+		options.Headers = []string{
+			"x-goog-encryption-algorithm: AES256",
+		}
+	}
+	return storage.SignedURL(client.config.BucketName, id, &options)
 }

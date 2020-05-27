@@ -9,6 +9,7 @@ import (
 	"time"
 
 	. "github.com/cloudfoundry/bosh-cli/cmd"
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	boshdir "github.com/cloudfoundry/bosh-cli/director"
 	fakedir "github.com/cloudfoundry/bosh-cli/director/directorfakes"
 	fakeui "github.com/cloudfoundry/bosh-cli/ui/fakes"
@@ -69,6 +70,7 @@ var _ = Describe("VMsCmd", func() {
 					DiskIDs:            []string{"diskcid1", "diskcid2"},
 					VMCreatedAt:        time.Date(2016, time.January, 9, 6, 23, 25, 0, time.UTC),
 					CloudProperties:    cloudProperties,
+					Stemcell:           boshdir.VmInfoStemcell{Name: "stemcell", Version: "version", ApiVersion: 1},
 
 					Vitals: boshdir.VMInfoVitals{
 						Load: []string{"0.02", "0.06", "0.11"},
@@ -103,6 +105,7 @@ var _ = Describe("VMsCmd", func() {
 					DiskIDs:            []string{"diskcid1", "diskcid2"},
 					VMCreatedAt:        time.Date(2016, time.January, 9, 6, 23, 25, 0, time.UTC),
 					CloudProperties:    cloudProperties,
+					Stemcell:           boshdir.VmInfoStemcell{Name: "stemcell", Version: "version", ApiVersion: 1},
 
 					Vitals: boshdir.VMInfoVitals{
 						Load: []string{"0.52", "0.56", "0.51"},
@@ -157,6 +160,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewHeader("VM CID"),
 							boshtbl.NewHeader("VM Type"),
 							boshtbl.NewHeader("Active"),
+							boshtbl.NewHeader("Stemcell"),
 						},
 
 						SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
@@ -170,6 +174,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in1-cid"),
 								boshtbl.NewValueString("in1-rp"),
 								boshtbl.NewValueString("true"),
+								boshtbl.NewValueString("stemcell/version"),
 							},
 							{
 								boshtbl.NewValueString("job-name"),
@@ -179,6 +184,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in2-cid"),
 								boshtbl.NewValueString("in2-rp"),
 								boshtbl.NewValueString("false"),
+								boshtbl.NewValueString("stemcell/version"),
 							},
 							{
 								boshtbl.NewValueString("?"),
@@ -187,6 +193,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.ValueStrings{},
 								boshtbl.ValueString{},
 								boshtbl.ValueString{},
+								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueString{S: "-"},
 							},
 						},
@@ -211,6 +218,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewHeader("VM CID"),
 							boshtbl.NewHeader("VM Type"),
 							boshtbl.NewHeader("Active"),
+							boshtbl.NewHeader("Stemcell"),
 							boshtbl.NewHeader("DNS A Records"),
 						},
 
@@ -225,6 +233,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in1-cid"),
 								boshtbl.NewValueString("in1-rp"),
 								boshtbl.NewValueString("true"),
+								boshtbl.NewValueString("stemcell/version"),
 								boshtbl.NewValueStrings([]string{"in1-dns1", "in1-dns2"}),
 							},
 							{
@@ -235,6 +244,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in2-cid"),
 								boshtbl.NewValueString("in2-rp"),
 								boshtbl.NewValueString("false"),
+								boshtbl.NewValueString("stemcell/version"),
 								boshtbl.NewValueStrings([]string{"in2-dns1"}),
 							},
 							{
@@ -244,6 +254,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.ValueStrings{},
 								boshtbl.ValueString{},
 								boshtbl.ValueString{},
+								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueStrings{},
 							},
@@ -269,6 +280,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewHeader("VM CID"),
 							boshtbl.NewHeader("VM Type"),
 							boshtbl.NewHeader("Active"),
+							boshtbl.NewHeader("Stemcell"),
 							boshtbl.NewHeader("VM Created At"),
 							boshtbl.NewHeader("Uptime"),
 							boshtbl.NewHeader("Load\n(1m, 5m, 15m)"),
@@ -294,6 +306,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in1-cid"),
 								boshtbl.NewValueString("in1-rp"),
 								boshtbl.NewValueString("true"),
+								boshtbl.NewValueString("stemcell/version"),
 								boshtbl.NewValueTime(time.Date(2016, time.January, 9, 6, 23, 25, 0, time.UTC)),
 								ValueUptime{},
 								boshtbl.NewValueString("0.02, 0.06, 0.11"),
@@ -315,6 +328,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in2-cid"),
 								boshtbl.NewValueString("in2-rp"),
 								boshtbl.NewValueString("false"),
+								boshtbl.NewValueString("stemcell/version"),
 								boshtbl.NewValueTime(time.Date(2016, time.January, 9, 6, 23, 25, 0, time.UTC)),
 								ValueUptime{},
 								boshtbl.NewValueString("0.52, 0.56, 0.51"),
@@ -335,6 +349,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.ValueStrings{},
 								boshtbl.ValueString{},
 								boshtbl.ValueString{},
+								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueString{S: "-"},
 								boshtbl.NewValueTime(time.Time{}.UTC()),
 								ValueUptime{},
@@ -371,6 +386,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewHeader("VM CID"),
 							boshtbl.NewHeader("VM Type"),
 							boshtbl.NewHeader("Active"),
+							boshtbl.NewHeader("Stemcell"),
 							boshtbl.NewHeader("Cloud Properties"),
 						},
 
@@ -385,6 +401,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in1-cid"),
 								boshtbl.NewValueString("in1-rp"),
 								boshtbl.NewValueString("true"),
+								boshtbl.NewValueString("stemcell/version"),
 								boshtbl.NewValueInterface(map[string]string{"instance_type": "m1.small"}),
 							},
 							{
@@ -395,6 +412,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in2-cid"),
 								boshtbl.NewValueString("in2-rp"),
 								boshtbl.NewValueString("false"),
+								boshtbl.NewValueString("stemcell/version"),
 								boshtbl.NewValueInterface(map[string]string{"instance_type": "m1.small"}),
 							},
 							{
@@ -404,6 +422,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.ValueStrings{},
 								boshtbl.ValueString{},
 								boshtbl.ValueString{},
+								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueInterface{},
 							},
@@ -442,6 +461,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewHeader("VM CID"),
 							boshtbl.NewHeader("VM Type"),
 							boshtbl.NewHeader("Active"),
+							boshtbl.NewHeader("Stemcell"),
 						},
 
 						SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
@@ -455,6 +475,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in1-cid"),
 								boshtbl.NewValueString("in1-rp"),
 								boshtbl.NewValueString("-"),
+								boshtbl.NewValueString("stemcell/version"),
 							},
 							{
 								boshtbl.NewValueString("job-name"),
@@ -464,6 +485,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in2-cid"),
 								boshtbl.NewValueString("in2-rp"),
 								boshtbl.NewValueString("-"),
+								boshtbl.NewValueString("stemcell/version"),
 							},
 							{
 								boshtbl.NewValueString("?"),
@@ -472,6 +494,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.ValueStrings{},
 								boshtbl.ValueString{},
 								boshtbl.ValueString{},
+								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueString{S: "-"},
 							},
 						},
@@ -531,6 +554,7 @@ var _ = Describe("VMsCmd", func() {
 						boshtbl.NewHeader("VM CID"),
 						boshtbl.NewHeader("VM Type"),
 						boshtbl.NewHeader("Active"),
+						boshtbl.NewHeader("Stemcell"),
 					},
 
 					SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
@@ -544,6 +568,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewValueString("in1-cid"),
 							boshtbl.NewValueString("in1-rp"),
 							boshtbl.NewValueString("true"),
+							boshtbl.NewValueString("stemcell/version"),
 						},
 						{
 							boshtbl.NewValueString("job-name"),
@@ -553,6 +578,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewValueString("in2-cid"),
 							boshtbl.NewValueString("in2-rp"),
 							boshtbl.NewValueString("false"),
+							boshtbl.NewValueString("stemcell/version"),
 						},
 						{
 							boshtbl.NewValueString("?"),
@@ -561,6 +587,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.ValueStrings{},
 							boshtbl.ValueString{},
 							boshtbl.ValueString{},
+							boshtbl.ValueString{S: "-"},
 							boshtbl.ValueString{S: "-"},
 						},
 					},
@@ -660,6 +687,7 @@ var _ = Describe("VMsCmd", func() {
 							boshtbl.NewHeader("VM CID"),
 							boshtbl.NewHeader("VM Type"),
 							boshtbl.NewHeader("Active"),
+							boshtbl.NewHeader("Stemcell"),
 						},
 
 						SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
@@ -673,6 +701,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in1-cid"),
 								boshtbl.NewValueString("in1-rp"),
 								boshtbl.NewValueString("true"),
+								boshtbl.NewValueString("stemcell/version"),
 							},
 							{
 								boshtbl.NewValueString("job-name"),
@@ -682,6 +711,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.NewValueString("in2-cid"),
 								boshtbl.NewValueString("in2-rp"),
 								boshtbl.NewValueString("false"),
+								boshtbl.NewValueString("stemcell/version"),
 							},
 							{
 								boshtbl.NewValueString("?"),
@@ -690,6 +720,7 @@ var _ = Describe("VMsCmd", func() {
 								boshtbl.ValueStrings{},
 								boshtbl.ValueString{},
 								boshtbl.ValueString{},
+								boshtbl.ValueString{S: "-"},
 								boshtbl.ValueString{S: "-"},
 							},
 						},

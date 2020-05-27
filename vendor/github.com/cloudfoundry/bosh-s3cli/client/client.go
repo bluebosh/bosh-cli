@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/cloudfoundry/bosh-s3cli/config"
@@ -146,6 +147,19 @@ func (client *S3Blobstore) Exists(dest string) (bool, error) {
 	return false, err
 }
 
+// Sign presigns URLs for a S3 compatible blobstore
+func (client *S3Blobstore) Sign(objectID string, action string, expiration time.Duration) (string, error) {
+	action = strings.ToUpper(action)
+	switch action {
+	case "GET":
+		return client.getSigned(objectID, expiration)
+	case "PUT":
+		return client.putSigned(objectID, expiration)
+	default:
+		return "", fmt.Errorf("action not implemented: %s", action)
+	}
+}
+
 func (client *S3Blobstore) key(srcOrDest string) *string {
 	formattedKey := aws.String(srcOrDest)
 	if len(client.s3cliConfig.FolderName) != 0 {
@@ -153,4 +167,26 @@ func (client *S3Blobstore) key(srcOrDest string) *string {
 	}
 
 	return formattedKey
+}
+
+func (client *S3Blobstore) getSigned(objectID string, expiration time.Duration) (string, error) {
+	signParams := &s3.GetObjectInput{
+		Bucket: aws.String(client.s3cliConfig.BucketName),
+		Key:    client.key(objectID),
+	}
+
+	req, _ := client.s3Client.GetObjectRequest(signParams)
+
+	return req.Presign(expiration)
+}
+
+func (client *S3Blobstore) putSigned(objectID string, expiration time.Duration) (string, error) {
+	signParams := &s3.PutObjectInput{
+		Bucket: aws.String(client.s3cliConfig.BucketName),
+		Key:    client.key(objectID),
+	}
+
+	req, _ := client.s3Client.PutObjectRequest(signParams)
+
+	return req.Presign(expiration)
 }

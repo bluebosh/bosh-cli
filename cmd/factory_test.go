@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/cloudfoundry/bosh-cli/cmd"
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	boshdir "github.com/cloudfoundry/bosh-cli/director"
 	boshui "github.com/cloudfoundry/bosh-cli/ui"
 )
@@ -450,12 +451,6 @@ var _ = Describe("Factory", func() {
 			}
 
 			_, err := factory.New(opts)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("errors when BOSH_USER is set", func() {
-			os.Setenv("BOSH_USER", "bar")
-			_, err := factory.New([]string{})
 			Expect(err).To(HaveOccurred())
 		})
 	})

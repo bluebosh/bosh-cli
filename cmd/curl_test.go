@@ -11,6 +11,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 
 	. "github.com/cloudfoundry/bosh-cli/cmd"
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	boshdir "github.com/cloudfoundry/bosh-cli/director"
 	fakeui "github.com/cloudfoundry/bosh-cli/ui/fakes"
 )
@@ -119,7 +120,6 @@ var _ = Describe("CurlCmd", func() {
 				Expect(ui.Blocks).To(Equal([]string{
 					strings.Join([]string{
 						"HTTP/1.1 200 OK\r\n",
-						"Connection: close\r\n",
 						"Content-Length: 9\r\n",
 						"Content-Type: text/plain; charset=utf-8\r\n",
 						"Date: date\r\n",
@@ -223,7 +223,6 @@ var _ = Describe("CurlCmd", func() {
 				Expect(ui.Blocks).To(Equal([]string{
 					strings.Join([]string{
 						"HTTP/1.1 200 OK\r\n",
-						"Connection: close\r\n",
 						"Content-Length: 9\r\n",
 						"Content-Type: text/plain; charset=utf-8\r\n",
 						"Date: date\r\n",
@@ -327,7 +326,6 @@ var _ = Describe("CurlCmd", func() {
 				Expect(ui.Blocks).To(Equal([]string{
 					strings.Join([]string{
 						"HTTP/1.1 200 OK\r\n",
-						"Connection: close\r\n",
 						"Content-Length: 9\r\n",
 						"Content-Type: text/plain; charset=utf-8\r\n",
 						"Date: date\r\n",
@@ -419,7 +417,6 @@ var _ = Describe("CurlCmd", func() {
 				Expect(ui.Blocks).To(Equal([]string{
 					strings.Join([]string{
 						"HTTP/1.1 200 OK\r\n",
-						"Connection: close\r\n",
 						"Content-Length: 9\r\n",
 						"Content-Type: text/plain; charset=utf-8\r\n",
 						"Date: date\r\n",
@@ -449,48 +446,6 @@ var _ = Describe("CurlCmd", func() {
 
 				Expect(ui.Blocks).To(BeEmpty())
 			})
-		})
-	})
-})
-
-var _ = Describe("CurlHeader", func() {
-	Describe("UnmarshalFlag", func() {
-		var (
-			arg CurlHeader
-		)
-
-		BeforeEach(func() {
-			arg = CurlHeader{}
-		})
-
-		It("sets name and value", func() {
-			err := (&arg).UnmarshalFlag("name: val")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(arg).To(Equal(CurlHeader{Name: "name", Value: "val"}))
-		})
-
-		It("sets name and value when value contains a `: `", func() {
-			err := (&arg).UnmarshalFlag("name: val: ue")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(arg).To(Equal(CurlHeader{Name: "name", Value: "val: ue"}))
-		})
-
-		It("returns error if string does not have 2 pieces", func() {
-			err := (&arg).UnmarshalFlag("val")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Expected header 'val' to be in format 'name: value'"))
-		})
-
-		It("returns error if name is empty", func() {
-			err := (&arg).UnmarshalFlag(": val")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Expected header ': val' to specify non-empty name"))
-		})
-
-		It("returns error if value is empty", func() {
-			err := (&arg).UnmarshalFlag("name: ")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("Expected header 'name: ' to specify non-empty value"))
 		})
 	})
 })

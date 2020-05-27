@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/cloudfoundry/bosh-cli/cmd"
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	boshdir "github.com/cloudfoundry/bosh-cli/director"
 	fakedir "github.com/cloudfoundry/bosh-cli/director/directorfakes"
 	fakeui "github.com/cloudfoundry/bosh-cli/ui/fakes"
@@ -26,13 +27,10 @@ var _ = Describe("EnvironmentCmd", func() {
 		ui = &fakeui.FakeUI{}
 		director = &fakedir.FakeDirector{}
 		command = NewEnvironmentCmd(ui, director)
+		opts = EnvironmentOpts{}
 	})
 
 	Describe("Run", func() {
-		BeforeEach(func() {
-
-		})
-
 		act := func() error { return command.Run(opts) }
 
 		It("outputs a table that should be transposed", func() {

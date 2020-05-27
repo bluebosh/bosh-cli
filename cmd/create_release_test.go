@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "github.com/cloudfoundry/bosh-cli/cmd"
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 	boshrel "github.com/cloudfoundry/bosh-cli/release"
 	fakerel "github.com/cloudfoundry/bosh-cli/release/releasefakes"
 	boshreldir "github.com/cloudfoundry/bosh-cli/releasedir"
@@ -150,7 +151,7 @@ var _ = Describe("CreateReleaseCmd", func() {
 					Expect(content).To(Equal("release content blah"))
 				})
 
-				It("interpolates release archive destionation path with ((name)) and ((version))", func() {
+				It("interpolates release archive destination path with ((name)) and ((version))", func() {
 					opts.Tarball = FileArg{ExpandedPath: "/tarball-destination-((name))-((version)).tgz"}
 
 					fakeWriter.WriteStub = func(rel boshrel.Release, skipPkgs []string) (string, error) {

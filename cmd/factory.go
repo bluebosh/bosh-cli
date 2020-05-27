@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
 	// Should only be imported here to avoid leaking use of goflags through project
 	goflags "github.com/jessevdk/go-flags"
+
+	. "github.com/cloudfoundry/bosh-cli/cmd/opts"
 )
 
 type Factory struct {
@@ -100,10 +101,6 @@ func (f Factory) New(args []string) (Cmd, error) {
 	parser.WriteHelp(helpText)
 
 	_, err := parser.ParseArgs(args)
-
-	if boshOpts.UsernameOpt != "" {
-		return Cmd{}, errors.New("BOSH_USER is deprecated use BOSH_CLIENT instead")
-	}
 
 	// --help and --version result in errors; turn them into successful output cmds
 	if typedErr, ok := err.(*goflags.Error); ok {
